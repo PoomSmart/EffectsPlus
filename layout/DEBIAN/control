@@ -1,0 +1,8 @@
+Package: org.thebigboss.effectsplus
+Name: Effects+
+Depends: mobilesubstrate, firmware (>= 7.0), gsc.still-camera | gsc.front-facing-camera
+Version: 1.0
+Architecture: iphoneos-arm
+Description: more effect filters for Camera and Photos app!
+Author: PoomSmart
+Section: Tweaks
