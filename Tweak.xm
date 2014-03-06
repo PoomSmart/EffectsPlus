@@ -34,6 +34,7 @@
 
 @interface CITriangleKaleidoscope : CIFilter
 @property(retain) CIImage *inputImage;
+@property(copy) NSNumber *inputDecay;
 @property(retain, nonatomic) NSNumber *inputAngle;
 @property(copy) CIVector *inputPoint;
 @end
@@ -59,10 +60,6 @@
 - (void)dealloc;
 @end
 
-@interface PLEffectFilterManager (EffectsPlusAddition)
-- (void)EffectsPlus_addEffectNamed:(NSString *)name aggdName:(NSString *)aggdName filter:(CIFilter *)filter;
-@end
-
 @interface PLImageAdjustmentView
 - (void)setEditedImage:(UIImage *)image;
 @end
@@ -80,6 +77,7 @@
 
 static NSString *identifierFix;
 static BOOL internalBlurHook = NO;
+static BOOL globalFilterHook = NO;
 
 %hook PLManagedAsset
 
@@ -110,6 +108,7 @@ static BOOL internalBlurHook = NO;
 
 %hook CIImage
 
+// This method will be very nice if it doesn't reduce the image size, so we have to fix that
 - (CIImage *)_imageByApplyingBlur:(double)blur
 {
 	if (!internalBlurHook)
@@ -132,6 +131,8 @@ static BOOL internalBlurHook = NO;
 
 - (CIImage *)outputImage
 {
+	if (!globalFilterHook)
+		return %orig;
 	CIImage *output = %orig;
 	CGRect rect = self.inputImage.extent;
 	/*double blur = [self.inputRadius doubleValue];
@@ -152,6 +153,8 @@ static BOOL internalBlurHook = NO;
 
 - (CIImage *)outputImage
 {
+	if (!globalFilterHook)
+		return %orig;
 	CIImage *output = %orig;
 	CGRect rect = self.inputImage.extent;
 	CIContext *context = [CIContext contextWithOptions:nil];
@@ -167,6 +170,8 @@ static BOOL internalBlurHook = NO;
 
 - (CIImage *)outputImage
 {
+	if (!globalFilterHook)
+		return %orig;
 	CIImage *output = %orig;
 	CGRect rect = self.inputImage.extent;
 	CIContext *context = [CIContext contextWithOptions:nil];
@@ -182,6 +187,8 @@ static BOOL internalBlurHook = NO;
 
 - (CIImage *)outputImage
 {
+	if (!globalFilterHook)
+		return %orig;
 	CIImage *output = %orig;
 	CGRect rect = self.inputImage.extent;
 	CIContext *context = [CIContext contextWithOptions:nil];
@@ -197,6 +204,8 @@ static BOOL internalBlurHook = NO;
 
 - (CIImage *)outputImage
 {
+	if (!globalFilterHook)
+		return %orig;
 	CIImage *output = %orig;
 	CGRect rect = self.inputImage.extent;
 	CIContext *context = [CIContext contextWithOptions:nil];
@@ -230,30 +239,33 @@ static BOOL internalBlurHook = NO;
 
 %hook PLEffectsGridView
 
+// Set the exact cell count per row of the filters grid to fit all filters there
 - (unsigned)_cellsPerRow
 {
 	return 6;
 }
 
-/*- (unsigned)_cellCount
+// Return the exact filters count to reduce the CPU processing for filters
+- (unsigned)_cellCount
 {
-	return 27;
-}*/
+	return 28;
+}
 
 - (void)_renderGridFilters:(id)filters withInputImage:(id)inputImage ciContext:(id)context mirrorRendering:(BOOL)rendering
 {
 	%orig;
 	internalBlurHook = NO;
+	globalFilterHook = NO;
 }
 
 /*- (void)_updatePixelBufferPoolForSize:(CGSize)size
 {
-	%orig(CGSizeMake(size.width*0.8, size.height*0.8));
+	%orig(CGSizeMake(size.width*0.6, size.height*0.6));
 }
 
 - (CVBufferRef)_createPixelBufferForSize:(CGSize)size
 {
-	return %orig(CGSizeMake(size.width*0.8, size.height*0.8));
+	return %orig(CGSizeMake(size.width*0.6, size.height*0.6));
 }*/
 
 /*- (CGRect)rectForFilterIndex:(unsigned)index
@@ -267,14 +279,14 @@ static BOOL internalBlurHook = NO;
 
 %hook PLEffectsGridLabelsView
 
-- (id)initWithFrame:(CGRect)frame
+- (void)_replaceLabelView
 {
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+	%orig;
+	if (MSHookIvar<_UIBackdropView *>(self, "__backdropView") != nil) {
 		[MSHookIvar<_UIBackdropView *>(self, "__backdropView") removeFromSuperview];
 		[MSHookIvar<_UIBackdropView *>(self, "__backdropView") release];
 		MSHookIvar<_UIBackdropView *>(self, "__backdropView") = nil;
-	});
-	return %orig;
+	}
 }
 
 - (void)backdropViewDidChange:(id)change
@@ -294,22 +306,30 @@ static BOOL internalBlurHook = NO;
 
 %hook PLCIFilterUtilities
 
+// These CIFilter need some modification in order to make them work correctly
 + (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)image orientation:(int)orientation copyFiltersFirst:(BOOL)copyFirst
 {
 	NSString *filterName = ((CIFilter *)[filters objectAtIndex:0]).name;
 	if ([filterName isEqualToString:@"CIBloom"] || [filterName isEqualToString:@"CIGloom"])
 		internalBlurHook = YES;
+	if ([filterName isEqualToString:@"CIGaussianBlur"] ||
+		[filterName isEqualToString:@"CIStretch"] ||
+		[filterName isEqualToString:@"CIMirror"] ||
+		[filterName isEqualToString:@"CITriangleKaleidoscope"] ||
+		[filterName isEqualToString:@"CITwirlDistortion"])
+		globalFilterHook = YES;
 	return %orig;
 }
 
 %end
 
-%hook PLEffectsFullSizeView
+%hook PLEffectsFullsizeView
 
 - (void)_renderWithInputImage:(id)inputImage ciContext:(id)context mirrorRendering:(BOOL)rendering
 {
 	%orig;
 	internalBlurHook = NO;
+	globalFilterHook = NO;
 }
 
 %end
@@ -326,66 +346,59 @@ if (llog)
 
 %end*/
 
-%hook PLEffectFilterManager
-
-%new
-- (void)EffectsPlus_addEffectNamed:(NSString *)name aggdName:(NSString *)aggdName filter:(CIFilter *)filter
+static void _addPBEffect(NSString *displayName, NSString *filterName, PLEffectFilterManager *manager)
 {
-	NSMutableArray *effects = MSHookIvar<NSMutableArray *>(self, "_effects");
-	if (![effects containsObject:filter])
-		[self _addEffectNamed:name aggdName:aggdName filter:filter];
+	PBFilter *filter = [PBFilter filterWithName:filterName];
+	CIFilter *filter2 = [filter ciFilter];
+	[filter applyParametersToCIFilter:filter2 extent:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
+	if ([filter2.name isEqualToString:@"CIMirror"])
+		[(CIMirror *)filter2 setInputPoint:[CIVector vectorWithX:[UIScreen mainScreen].bounds.size.height Y:[UIScreen mainScreen].bounds.size.width]];
+	/*if ([filter2.name isEqualToString:@"CITriangleKaleidoscope"])
+		[(CITriangleKaleidoscope *)filter2 setInputDecay:@150];*/
+	[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter2];
 }
+
+static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFilterManager *manager)
+{
+	CIFilter *filter = [CIFilter filterWithName:filterName];
+	if ([filter.name isEqualToString:@"CIGloom"])
+		[(CIGloom *)filter setInputRadius:@15];
+	else if ([filter.name isEqualToString:@"CIBloom"])
+		[(CIBloom *)filter setInputRadius:@15];
+	else if ([filter.name isEqualToString:@"CITwirlDistortion"]) {
+		[(CITwirlDistortion *)filter setInputCenter:[CIVector vectorWithX:[UIScreen mainScreen].bounds.size.height Y:[UIScreen mainScreen].bounds.size.width]];
+		[(CITwirlDistortion *)filter setInputRadius:@200];
+	}
+	[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
+}
+
+%hook PLEffectFilterManager
 
 - (PLEffectFilterManager *)init
 {
 	PLEffectFilterManager *manager = %orig;
 	if (manager != nil) {
-		NSDictionary *filters = [NSDictionary dictionaryWithObjectsAndKeys:
-			@"Sepia", @"CISepiaTone",
-			@"Vibrance", @"CIVibrance",
-			@"Invert", @"CIColorInvert",
-			@"MC", @"CIColorMonochrome",
-			@"Posterize", @"CIColorPosterize",
-			@"Gloom", @"CIGloom",
-			@"Bloom", @"CIBloom",
-			@"Sharp", @"CISharpenLuminance",
-			@"Pixel", @"CIPixellate",
-			@"SRGB", @"CILinearToSRGBToneCurve",
-			@"Blur", @"CIGaussianBlur",
-			@"False", @"CIFalseColor",
-			@"Triangle", @"PBKaleidoscopeFilter",
-			@"Twirl", @"CITwirlDistortion",
-			@"WMirror", @"CIWrapMirror",
-			@"Mirror", @"PBMirrorFilter",
-			@"Squeeze", @"PBSqueezeFilter",
-			@"Stretch", @"CIStretch",
-			nil];
-		NSArray *keys = [filters allKeys];
-		NSArray *values = [filters allValues];
-		NSUInteger count = [keys count];
-		for (unsigned int i = 0; i < count; i++) {
-			NSString *filterName = [keys objectAtIndex:i];
-			NSString *displayName = [values objectAtIndex:i];
-			if ([filterName hasPrefix:@"PB"]) {
-				PBFilter *filter = [PBFilter filterWithName:filterName];
-				CIFilter *filter2 = [filter ciFilter];
-				[filter applyParametersToCIFilter:filter2 extent:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
-				if ([filter2.name isEqualToString:@"CIMirror"])
-					[(CIMirror *)filter2 setInputPoint:[CIVector vectorWithX:[UIScreen mainScreen].bounds.size.height Y:[UIScreen mainScreen].bounds.size.width]];
-				[manager EffectsPlus_addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter2];
-			} else {
-				CIFilter *filter = [CIFilter filterWithName:filterName];
-				if ([filter.name isEqualToString:@"CIGloom"])
-					[(CIGloom *)filter setInputRadius:@15];
-				else if ([filter.name isEqualToString:@"CIBloom"])
-					[(CIBloom *)filter setInputRadius:@15];
-				else if ([filter.name isEqualToString:@"CITwirlDistortion"]) {
-					[(CITwirlDistortion *)filter setInputCenter:[CIVector vectorWithX:[UIScreen mainScreen].bounds.size.height Y:[UIScreen mainScreen].bounds.size.width]];
-					[(CITwirlDistortion *)filter setInputRadius:@200];
-				}
-				[manager EffectsPlus_addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
-			}
-		}
+		#define addPBEffect(arg1, arg2) _addPBEffect(arg1, arg2, manager)
+		#define addCIEffect(arg1, arg2) _addCIEffect(arg1, arg2, manager)
+		addCIEffect(@"Sepia", @"CISepiaTone");
+		addCIEffect(@"Vibrance", @"CIVibrance");
+		addCIEffect(@"Invert", @"CIColorInvert");
+		addCIEffect(@"MonoC", @"CIColorMonochrome");
+		addCIEffect(@"Posterize", @"CIColorPosterize");
+		addCIEffect(@"Gloom", @"CIGloom");
+		addCIEffect(@"Bloom", @"CIBloom");
+		addCIEffect(@"Sharp", @"CISharpenLuminance");
+		addCIEffect(@"SRGB", @"CILinearToSRGBToneCurve");
+		addCIEffect(@"Pixel", @"CIPixellate");
+		addCIEffect(@"Blur", @"CIGaussianBlur");
+		addCIEffect(@"False", @"CIFalseColor");
+		addCIEffect(@"Twirl", @"CITwirlDistortion");
+		addCIEffect(@"Mirrors", @"CIWrapMirror");
+		addCIEffect(@"Stretch", @"CIStretch");
+		addPBEffect(@"Kaleidoscope", @"PBKaleidoscopeFilter");
+		addPBEffect(@"Mirror", @"PBMirrorFilter");
+		addPBEffect(@"Thermal", @"PBThermalFilter");
+		addPBEffect(@"Squeeze", @"PBSqueezeFilter");
 	}
 	return manager;
 }
