@@ -22,6 +22,8 @@
 @end
 
 @interface CIStretch : CIFilter
+@property(copy) CIVector *inputPoint;
+@property(copy) CIVector *inputSize;
 @end
 
 @interface CITwirlDistortion : CIFilter
@@ -337,6 +339,10 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 		[(CITriangleKaleidoscope *)filter setInputPoint:[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2]];
 		[(CITriangleKaleidoscope *)filter setInputSize:@(extent.size.width/2)];
 	}
+	else if ([filterName isEqualToString:@"CIStretch"]) {
+		[(CIStretch *)filter setInputPoint:(orientation == 5 || orientation == 6) ? 	[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2] :
+																						[CIVector vectorWithX:extent.size.height/2 Y:extent.size.width/2]];
+	}
 	else if ([filterName isEqualToString:@"CIPinchDistortion"]) {
 		[(CITwirlDistortion *)filter setInputRadius:@(extent.size.width/3.5)];
 		[(CIPinchDistortion *)filter setInputCenter:(orientation == 5 || orientation == 6) ? 	[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2] :
@@ -369,9 +375,9 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 {
 	CIFilter *filter = [CIFilter filterWithName:filterName];
 	if ([filter.name isEqualToString:@"CIGloom"])
-		[(CIGloom *)filter setInputRadius:@15];
+		[(CIGloom *)filter setInputRadius:@32];
 	else if ([filter.name isEqualToString:@"CIBloom"])
-		[(CIBloom *)filter setInputRadius:@15];
+		[(CIBloom *)filter setInputRadius:@32];
 	else if ([filter.name isEqualToString:@"CITwirlDistortion"])
 		[(CITwirlDistortion *)filter setInputAngle:@(M_PI/2)];
 	[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
