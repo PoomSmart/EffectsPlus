@@ -343,16 +343,16 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 		[(CITriangleKaleidoscope *)filter setInputSize:@(extent.size.width/2)];
 	}
 	else if ([filterName isEqualToString:@"CIStretch"]) {
-		[(CIStretch *)filter setInputPoint:(orientation == 5 || orientation == 6) ? normalHalfExtent : orientation == 1 ? normalHalfExtent : invertHalfExtent];
+		[(CIStretch *)filter setInputPoint:(orientation == 1 || orientation == 5 || orientation == 6) ? normalHalfExtent : invertHalfExtent];
 	}
 	else if ([filterName isEqualToString:@"CIPinchDistortion"]) {
 		[(CITwirlDistortion *)filter setInputRadius:@(extent.size.width/3.5)];
-		[(CIPinchDistortion *)filter setInputCenter:(orientation == 5 || orientation == 6) ? normalHalfExtent : orientation == 1 ? normalHalfExtent : invertHalfExtent];
+		[(CIPinchDistortion *)filter setInputCenter:(orientation == 1 || orientation == 5 || orientation == 6) ? normalHalfExtent : invertHalfExtent];
 	}
 	else if ([filterName isEqualToString:@"CITwirlDistortion"]) {
 	%log;
 		[(CITwirlDistortion *)filter setInputRadius:@(extent.size.width/3)];
-		[(CITwirlDistortion *)filter setInputCenter:(orientation == 5 || orientation == 6) ? normalHalfExtent : orientation == 1 ? normalHalfExtent : invertHalfExtent];
+		[(CITwirlDistortion *)filter setInputCenter:(orientation == 1 || orientation == 5 || orientation == 6) ? normalHalfExtent : invertHalfExtent];
 	}
 	// Multiple filters is possible! I will add this feature soon ;)
 	return %orig;
