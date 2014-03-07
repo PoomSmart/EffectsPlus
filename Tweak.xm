@@ -331,27 +331,28 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 		[filterName isEqualToString:@"CIPinchDistortion"])
 		globalFilterHook = YES;
 	CGRect extent = [image extent];
+	CIVector *normalHalfExtent = [CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2];
+	CIVector *invertHalfExtent = [CIVector vectorWithX:extent.size.height/2 Y:extent.size.width/2];
 	if ([filterName isEqualToString:@"CIMirror"]) {
-		[(CIMirror *)filter setInputPoint:[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2]];
-		[(CIMirror *)filter setInputAngle:@(1.5*M_PI)];
+		[(CIMirror *)filter setInputPoint:normalHalfExtent];
+		if (orientation != 1)
+			[(CIMirror *)filter setInputAngle:@(1.5*M_PI)];
 	}
 	else if ([filterName isEqualToString:@"CITriangleKaleidoscope"]) {
-		[(CITriangleKaleidoscope *)filter setInputPoint:[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2]];
+		[(CITriangleKaleidoscope *)filter setInputPoint:normalHalfExtent];
 		[(CITriangleKaleidoscope *)filter setInputSize:@(extent.size.width/2)];
 	}
 	else if ([filterName isEqualToString:@"CIStretch"]) {
-		[(CIStretch *)filter setInputPoint:(orientation == 5 || orientation == 6) ? 	[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2] :
-																						[CIVector vectorWithX:extent.size.height/2 Y:extent.size.width/2]];
+		[(CIStretch *)filter setInputPoint:(orientation == 5 || orientation == 6) ? normalHalfExtent : orientation == 1 ? normalHalfExtent : invertHalfExtent];
 	}
 	else if ([filterName isEqualToString:@"CIPinchDistortion"]) {
 		[(CITwirlDistortion *)filter setInputRadius:@(extent.size.width/3.5)];
-		[(CIPinchDistortion *)filter setInputCenter:(orientation == 5 || orientation == 6) ? 	[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2] :
-																								[CIVector vectorWithX:extent.size.height/2 Y:extent.size.width/2]];
+		[(CIPinchDistortion *)filter setInputCenter:(orientation == 5 || orientation == 6) ? normalHalfExtent : orientation == 1 ? normalHalfExtent : invertHalfExtent];
 	}
 	else if ([filterName isEqualToString:@"CITwirlDistortion"]) {
+	%log;
 		[(CITwirlDistortion *)filter setInputRadius:@(extent.size.width/3)];
-		[(CITwirlDistortion *)filter setInputCenter:(orientation == 5 || orientation == 6) ? 	[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2] :
-																								[CIVector vectorWithX:extent.size.height/2 Y:extent.size.width/2]];
+		[(CITwirlDistortion *)filter setInputCenter:(orientation == 5 || orientation == 6) ? normalHalfExtent : orientation == 1 ? normalHalfExtent : invertHalfExtent];
 	}
 	// Multiple filters is possible! I will add this feature soon ;)
 	return %orig;
