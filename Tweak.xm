@@ -1,4 +1,5 @@
 #import <CoreImage/CIFilter.h>
+#import <ImageIO/ImageIO.h>
 
 @interface _UIBackdropView : UIView
 @end
@@ -26,6 +27,12 @@
 @property(retain) NSNumber *inputRadius;
 @end
 
+@interface CIPinchDistortion : CIFilter
+@property(retain) CIImage *inputImage;
+@property(retain) CIVector *inputCenter;
+@property(retain) NSNumber *inputRadius;
+@end
+
 @interface CIMirror : CIFilter
 @property(retain) CIImage *inputImage;
 @property(retain, nonatomic) NSNumber *inputAngle;
@@ -35,6 +42,7 @@
 @interface CITriangleKaleidoscope : CIFilter
 @property(retain) CIImage *inputImage;
 @property(copy) NSNumber *inputDecay;
+@property(copy) NSNumber *inputSize;
 @property(retain, nonatomic) NSNumber *inputAngle;
 @property(copy) CIVector *inputPoint;
 @end
@@ -85,6 +93,22 @@ static BOOL globalFilterHook = NO;
 - (id)_serializedPropertyDataFromFilter:(CIFilter *)filter
 {
 	return [filter _outputProperties];
+}
+
+- (CIImage *)filteredImage:(CIImage *)inputImage withCIContext:(CIContext *)context
+{
+	globalFilterHook = YES;
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+		globalFilterHook = NO;
+	});
+	return %orig;
+}
+
+- (void)generateThumbnailsWithImageSource:(CGImageSourceRef)arg1 imageData:(id)arg2 updateExistingLargePreview:(BOOL)arg3 allowMediumPreview:(BOOL)arg4 outSmallThumbnail:(id *)arg5 outLargeThumbnail:(id *)arg6
+{
+	globalFilterHook = YES;
+	%orig;
+	globalFilterHook = NO;
 }
 
 %end
@@ -200,6 +224,23 @@ static BOOL globalFilterHook = NO;
 
 %end
 
+%hook CIPinchDistortion
+
+- (CIImage *)outputImage
+{
+	if (!globalFilterHook)
+		return %orig;
+	CIImage *output = %orig;
+	CGRect rect = self.inputImage.extent;
+	CIContext *context = [CIContext contextWithOptions:nil];
+	CGImageRef cgImage = [context createCGImage:output fromRect:rect];
+	CIImage *outputImage = [CIImage imageWithCGImage:cgImage];
+	CGImageRelease(cgImage);
+	return outputImage;
+}
+
+%end
+
 %hook CITwirlDistortion
 
 - (CIImage *)outputImage
@@ -223,6 +264,19 @@ static BOOL globalFilterHook = NO;
 - (void)replaceEditedImage:(UIImage *)image
 {
 	[self setEditedImage:image];
+}
+
+%end
+
+%hook PLImageUtilties
+
++ (BOOL)generateThumbnailsFromJPEGData:(id)data inputSize:(CGSize)size preCropLargeThumbnailSize:(BOOL)crop postCropLargeThumbnailSize:(CGSize)arg4 preCropSmallThumbnailSize:(CGSize)arg5 postCropSmallThumbnailSize:(CGSize)arg6 outSmallThumbnailImageRef:(CGImage *)arg7 outLargeThumbnailImageRef:(CGImage *)arg8 outLargeThumbnailJPEGData:(id *)arg9 generateFiltersBlock:(void(^)(void))arg10
+{
+	globalFilterHook = YES;
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+		globalFilterHook = NO;
+	});
+	return %orig;
 }
 
 %end
@@ -279,7 +333,7 @@ static BOOL globalFilterHook = NO;
 
 %hook PLEffectsGridLabelsView
 
-- (void)_replaceLabelView
+- (void)_replaceLabelViews:(id)view
 {
 	%orig;
 	if (MSHookIvar<_UIBackdropView *>(self, "__backdropView") != nil) {
@@ -309,15 +363,34 @@ static BOOL globalFilterHook = NO;
 // These CIFilter need some modification in order to make them work correctly
 + (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)image orientation:(int)orientation copyFiltersFirst:(BOOL)copyFirst
 {
-	NSString *filterName = ((CIFilter *)[filters objectAtIndex:0]).name;
+	if ([filters count] == 0)
+		return %orig; // FIXME: This causes crashing if there are no filters in the array
+	CIFilter *filter = (CIFilter *)[filters objectAtIndex:0];
+	NSString *filterName = filter.name;
 	if ([filterName isEqualToString:@"CIBloom"] || [filterName isEqualToString:@"CIGloom"])
 		internalBlurHook = YES;
 	if ([filterName isEqualToString:@"CIGaussianBlur"] ||
 		[filterName isEqualToString:@"CIStretch"] ||
 		[filterName isEqualToString:@"CIMirror"] ||
 		[filterName isEqualToString:@"CITriangleKaleidoscope"] ||
-		[filterName isEqualToString:@"CITwirlDistortion"])
+		[filterName isEqualToString:@"CITwirlDistortion"] ||
+		[filterName isEqualToString:@"CIPinchDistortion"])
 		globalFilterHook = YES;
+	CGRect extent = [image extent];
+	if ([filterName isEqualToString:@"CIMirror"]) {
+		[(CIMirror *)filter setInputPoint:[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2]];
+		[(CIMirror *)filter setInputAngle:@(1.5*M_PI)];
+	}
+	else if ([filterName isEqualToString:@"CITriangleKaleidoscope"]) {
+		[(CITriangleKaleidoscope *)filter setInputPoint:[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2]];
+		[(CITriangleKaleidoscope *)filter setInputSize:@500];
+	}
+	else if ([filterName isEqualToString:@"CIPinchDistortion"])
+		[(CIPinchDistortion *)filter setInputCenter:orientation == 6 ? 	[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2] :
+																		[CIVector vectorWithX:extent.size.height/2 Y:extent.size.width/2]];
+	else if ([filterName isEqualToString:@"CITwirlDistortion"])
+		[(CITwirlDistortion *)filter setInputCenter:orientation == 6 ? 	[CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2] :
+																		[CIVector vectorWithX:extent.size.height/2 Y:extent.size.width/2]];
 	return %orig;
 }
 
@@ -338,9 +411,9 @@ static BOOL globalFilterHook = NO;
 
 - (void)drawImage:(CIImage *)image inRect:(CGRect)rect fromRect:(CGRect)rect2
 {
-//MSHookIvar<struct CGRect>(image, "_priv") = CGRectMake(0, 0, 107, 142);
-if (llog)
-	NSLog(@"An image: %@\ninRect: %@\nfromRect: %@", image, NSStringFromCGRect(rect), NSStringFromCGRect(rect2));
+	MSHookIvar<struct CGRect>(image, "_priv") = CGRectMake(0, 0, 107, 142);
+	if (llog)
+		NSLog(@"An image: %@\ninRect: %@\nfromRect: %@", image, NSStringFromCGRect(rect), NSStringFromCGRect(rect2));
 	%orig;
 }
 
@@ -350,11 +423,7 @@ static void _addPBEffect(NSString *displayName, NSString *filterName, PLEffectFi
 {
 	PBFilter *filter = [PBFilter filterWithName:filterName];
 	CIFilter *filter2 = [filter ciFilter];
-	[filter applyParametersToCIFilter:filter2 extent:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
-	if ([filter2.name isEqualToString:@"CIMirror"])
-		[(CIMirror *)filter2 setInputPoint:[CIVector vectorWithX:[UIScreen mainScreen].bounds.size.height Y:[UIScreen mainScreen].bounds.size.width]];
-	/*if ([filter2.name isEqualToString:@"CITriangleKaleidoscope"])
-		[(CITriangleKaleidoscope *)filter2 setInputDecay:@150];*/
+	[filter applyParametersToCIFilter:filter2 extent:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.height, [UIScreen mainScreen].bounds.size.width)];
 	[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter2];
 }
 
@@ -365,10 +434,8 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 		[(CIGloom *)filter setInputRadius:@15];
 	else if ([filter.name isEqualToString:@"CIBloom"])
 		[(CIBloom *)filter setInputRadius:@15];
-	else if ([filter.name isEqualToString:@"CITwirlDistortion"]) {
-		[(CITwirlDistortion *)filter setInputCenter:[CIVector vectorWithX:[UIScreen mainScreen].bounds.size.height Y:[UIScreen mainScreen].bounds.size.width]];
+	else if ([filter.name isEqualToString:@"CITwirlDistortion"])
 		[(CITwirlDistortion *)filter setInputRadius:@200];
-	}
 	[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
 }
 
@@ -395,8 +462,8 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 		addCIEffect(@"Twirl", @"CITwirlDistortion");
 		addCIEffect(@"Mirrors", @"CIWrapMirror");
 		addCIEffect(@"Stretch", @"CIStretch");
-		addPBEffect(@"Kaleidoscope", @"PBKaleidoscopeFilter");
-		addPBEffect(@"Mirror", @"PBMirrorFilter");
+		addCIEffect(@"Mirror", @"CIMirror");
+		addCIEffect(@"Kaleidoscope", @"CITriangleKaleidoscope");
 		addPBEffect(@"Thermal", @"PBThermalFilter");
 		addPBEffect(@"Squeeze", @"PBSqueezeFilter");
 	}
