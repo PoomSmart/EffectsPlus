@@ -1,0 +1,10 @@
+{
+	entry = {
+		bundle = "EffectsPlusPref";
+		cell = PSLinkCell;
+		detail = "EffectsPlusPrefController";
+		icon = "EffectsPlusPref.png";
+		isController = 1;
+		label = "Effects+";
+	};
+}
