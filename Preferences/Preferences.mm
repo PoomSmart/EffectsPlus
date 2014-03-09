@@ -70,7 +70,7 @@
 			return [effects count];
 		}
 	}
-	return 0;
+	return 1;
 }
 
 - (BOOL)tableView:(UITableView *)view shouldHighlightRowAtIndexPath:(NSIndexPath *)indexPath
@@ -93,11 +93,6 @@
 	[prefDict setObject:self.enabledEffects forKey:@"EnabledEffects"];
 	[prefDict setObject:self.disabledEffects forKey:@"DisabledEffects"];
 	[prefDict writeToFile:PREF_PATH atomically:YES];
-}
-
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
-{
-	[tableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 
 - (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)fromIndexPath toIndexPath:(NSIndexPath *)toIndexPath
@@ -178,7 +173,7 @@
     
 	if (cell == nil) {
 		cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"effect"] autorelease];
-		[cell.textLabel setNumberOfLines:1];
+		[cell.textLabel setNumberOfLines:0];
 		[cell.textLabel setBackgroundColor:[UIColor clearColor]];
 		[cell.textLabel setFont:[UIFont systemFontOfSize:kFontSize]];
 	}
@@ -226,6 +221,21 @@
 {
 	[super viewWillAppear:animated];
 	[self addBtn];
+}
+
+- (void)setInput:(id)value forSpecifier:(PSSpecifier *)spec
+{
+	NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
+	if ([formatter numberFromString:(NSString *)value] != nil) {
+		float floatValue = [value floatValue];
+		if (floatValue < 0)
+			value = @0;
+	} else
+		value = @0;
+	[formatter release];
+	[self setPreferenceValue:value specifier:spec];
+	[[NSUserDefaults standardUserDefaults] synchronize];
+	[self reloadSpecifier:spec animated:YES];
 }
 
 - (NSArray *)specifiers

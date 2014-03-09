@@ -20,12 +20,14 @@
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Effects+</string>
+			<key>footerText</key>
+			<string>Enabling every filters is not a good idea because too many filters causes the lag.</string>
 		</dict>
       <dict>
         	<key>cell</key>
         	<string>PSSwitchCell</string>
        		<key>default</key>
-        	<true/>
+        	<false/>
         	<key>defaults</key>
         	<string>com.PS.EffectsPlus</string>
         	<key>key</key>
@@ -85,6 +87,50 @@
 			<key>showValue</key>
 			<true/>
 		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Fill filters list</string>
+			<key>footerText</key>
+			<string>Replace the empty black space in filters selection view with empty filter view(s).</string>
+		</dict>
+		<dict>
+        	<key>cell</key>
+        	<string>PSSwitchCell</string>
+       		<key>default</key>
+        	<false/>
+        	<key>defaults</key>
+        	<string>com.PS.EffectsPlus</string>
+        	<key>key</key>
+        	<string>FillGrid</string>
+        	<key>label</key>
+        	<string>Enabled</string>
+        	<key>PostNotification</key>
+        	<string>com.PS.EffectsPlus.prefs</string>
+      </dict>
+      <dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Auto Hide Bottom Bar</string>
+			<key>footerText</key>
+			<string>When there are many filters, the bottom bar could shade the filters. Enable this to fix that issue.</string>
+		</dict>
+		<dict>
+        	<key>cell</key>
+        	<string>PSSwitchCell</string>
+       		<key>default</key>
+        	<false/>
+        	<key>defaults</key>
+        	<string>com.PS.EffectsPlus</string>
+        	<key>key</key>
+        	<string>AutoHideBB</string>
+        	<key>label</key>
+        	<string>Enabled</string>
+        	<key>PostNotification</key>
+        	<string>com.PS.EffectsPlus.prefs</string>
+      </dict>
       <dict>
         <key>cell</key>
         <string>PSGroupCell</string>

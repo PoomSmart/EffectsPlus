@@ -6,6 +6,13 @@
     <string>Filters Settings</string>
     <key>items</key>
     <array>
+    	<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>The value type for text boxes is just a numeric value (NSNumber), you can put them with or without digits.</string>
+		</dict>
+
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
@@ -23,6 +30,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CISepiaTone_inputIntensity</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputIntensity</string>
 			<key>PostNotification</key>
@@ -46,6 +55,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIVibrance_inputAmount</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputAmount</string>
 			<key>PostNotification</key>
@@ -56,7 +67,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Monochrome</string>
+			<string>Replace (Monochrome)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -69,6 +80,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIColorMonochrome_inputIntensity</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputIntensity</string>
 			<key>PostNotification</key>
@@ -78,7 +91,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Monochrome - inputColor</string>
+			<string>Replace - inputColor</string>
 		</dict>
 		 <dict>
 			<key>PostNotification</key>
@@ -145,13 +158,15 @@
 			<key>cell</key>
 			<string>PSEditTextCell</string>
 			<key>id</key>
-			<string>CIPosterize_inputLevels</string>
+			<string>CIColorPosterize_inputLevels</string>
 			<key>default</key>
 			<string>6.00</string>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
-			<string>CIPosterize_inputLevels</string>
+			<string>CIColorPosterize_inputLevels</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputLevels</string>
 			<key>PostNotification</key>
@@ -175,6 +190,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIGloom_inputRadius</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
@@ -191,6 +208,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIGloom_inputIntensity</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputIntensity</string>
 			<key>PostNotification</key>
@@ -214,6 +233,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIBloom_inputRadius</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
@@ -230,6 +251,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIBloom_inputIntensity</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputIntensity</string>
 			<key>PostNotification</key>
@@ -253,6 +276,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CISharpenLuminance_inputSharpness</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputSharpness</string>
 			<key>PostNotification</key>
@@ -276,6 +301,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIPixellate_inputScale</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputScale</string>
 			<key>PostNotification</key>
@@ -299,6 +326,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIGaussianBlur_inputRadius</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
@@ -322,8 +351,6 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>cell</key>
 			<string>PSSliderCell</string>
-			<key>titleLabel</key>
-			<string>tesT</string>
 			<key>default</key>
 			<real>0.5</real>
 			<key>defaults</key>
@@ -451,6 +478,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CITwirlDistortion_inputRadius</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
@@ -460,7 +489,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Twirl - inputAngle</string>
+			<string>Twirl - inputAngle (Degree)</string>
 		</dict>
 		<dict>
 			<key>PostNotification</key>
@@ -498,6 +527,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CITriangleKaleidoscope_inputSize</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputSize</string>
 			<key>PostNotification</key>
@@ -514,6 +545,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CITriangleKaleidoscope_inputDecay</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputDecay</string>
 			<key>PostNotification</key>
@@ -537,6 +570,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIPinchDistortion_inputRadius</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
@@ -553,6 +588,8 @@
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CIPinchDistortion_inputScale</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputScale</string>
 			<key>PostNotification</key>

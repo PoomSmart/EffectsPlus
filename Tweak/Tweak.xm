@@ -2,6 +2,10 @@
 #import <CoreImage/CIFilter.h>
 #import <ImageIO/ImageIO.h>
 
+static BOOL TweakEnabled;
+static BOOL FillGrid;
+static BOOL AutoHideBB;
+
 static NSString *identifierFix;
 static BOOL internalBlurHook = NO;
 static BOOL globalFilterHook = NO;
@@ -10,7 +14,7 @@ static float CISepiaTone_inputIntensity;
 static float CIVibrance_inputAmount;
 static float CIColorMonochrome_inputIntensity;
 static float CIColorMonochrome_R, CIColorMonochrome_G, CIColorMonochrome_B;
-static float CIPosterize_inputLevels;
+static float CIColorPosterize_inputLevels;
 static float CIGloom_inputRadius, CIGloom_inputIntensity;
 static float CIBloom_inputRadius, CIBloom_inputIntensity;
 static float CISharpenLuminance_inputSharpness;
@@ -32,20 +36,25 @@ static float qualityFactor;
 	return [filter _outputProperties];
 }
 
+// -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] is called here
 - (CIImage *)filteredImage:(CIImage *)inputImage withCIContext:(CIContext *)context
 {
 	globalFilterHook = YES;
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
-		globalFilterHook = NO;
-	});
-	return %orig;
+	internalBlurHook = YES;
+	CIImage *outputImage = %orig();
+	globalFilterHook = NO;
+	internalBlurHook = NO;
+	return outputImage;
 }
 
+// -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] is called here
 - (void)generateThumbnailsWithImageSource:(CGImageSourceRef)arg1 imageData:(id)arg2 updateExistingLargePreview:(BOOL)arg3 allowMediumPreview:(BOOL)arg4 outSmallThumbnail:(id *)arg5 outLargeThumbnail:(id *)arg6
 {
 	globalFilterHook = YES;
+	internalBlurHook = YES;
 	%orig;
 	globalFilterHook = NO;
+	internalBlurHook = NO;
 }
 
 %end
@@ -88,6 +97,7 @@ static float qualityFactor;
 
 %end
 
+// Some CIFilters reduce the image size, we have to fix that
 static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFilter *itsFilter)
 {
 	if (!globalFilterHook)
@@ -99,6 +109,18 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 	CGImageRelease(cgImage);
 	return fixedOutputImage;
 }
+
+/*static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inputDict)
+{
+	NSMutableDictionary *mutableInputDict = [inputDict mutableCopy];
+	NSMutableArray *filterCategoriesArray = [(NSArray *)[mutableInputDict objectForKey:@"CIAttributeFilterCategories"] mutableCopy];
+	if (filterCategoriesArray == nil)
+		return inputDict;
+	if (![filterCategoriesArray containsObject:@"CICategoryXMPSerializable"])
+		[filterCategoriesArray addObject:@"CICategoryXMPSerializable"];
+	[mutableInputDict setObject:filterCategoriesArray forKey:@"CIAttributeFilterCategories"];
+	return (NSDictionary *)mutableInputDict;
+}*/
 
 %hook CIGaussianBlur
 
@@ -154,6 +176,52 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 %end
 
+%hook CIColorMonochrome
+
+- (void)setInputIntensity:(NSNumber *)intensity
+{
+	%orig(globalFilterHook ? @(CIColorMonochrome_inputIntensity) : intensity);
+}
+
+- (void)setInputColor:(CIColor *)color
+{
+	%orig(globalFilterHook ? [CIColor colorWithRed:CIColorMonochrome_R green:CIColorMonochrome_G blue:CIColorMonochrome_B] : color);
+}
+
+%end
+
+%hook CIColorPosterize
+
+/*+ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}*/
+
+- (void)setInputLevels:(NSNumber *)levels
+{
+	%orig(globalFilterHook ? @(CIColorPosterize_inputLevels) : levels);
+}
+
+%end
+
+%hook CISepiaTone
+
+- (void)setInputIntensity:(NSNumber *)intensity
+{
+	%orig(globalFilterHook ? @(CISepiaTone_inputIntensity) : intensity);
+}
+
+%end
+
+%hook CIVibrance
+
+- (void)setInputAmount:(NSNumber *)amount
+{
+	%orig(globalFilterHook ? @(CIVibrance_inputAmount) : amount);
+}
+
+%end
+
 %hook PLImageAdjustmentView
 
 // Workaround for preventing the mismatch of image size checking, it causes crashing if the old image size is not equal to the edited image size
@@ -164,16 +232,17 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 %end
 
-%hook PLImageUtilties
+%hook PLImageUtilities
 
-// This very long method call -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] so we have to override that method here
-+ (BOOL)generateThumbnailsFromJPEGData:(id)data inputSize:(CGSize)size preCropLargeThumbnailSize:(BOOL)crop postCropLargeThumbnailSize:(CGSize)arg4 preCropSmallThumbnailSize:(CGSize)arg5 postCropSmallThumbnailSize:(CGSize)arg6 outSmallThumbnailImageRef:(CGImage *)arg7 outLargeThumbnailImageRef:(CGImage *)arg8 outLargeThumbnailJPEGData:(id *)arg9 generateFiltersBlock:(void(^)(void))arg10
+// -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] is called here
++ (BOOL)generateThumbnailsFromJPEGData:(id)arg1 inputSize:(CGSize)arg2 preCropLargeThumbnailSize:(CGSize)arg3 postCropLargeThumbnailSize:(CGSize)arg4 preCropSmallThumbnailSize:(CGSize)arg5 postCropSmallThumbnailSize:(CGSize)arg6 outSmallThumbnailImageRef:(CGImage*)arg7 outLargeThumbnailImageRef:(CGImage*)arg8 outLargeThumbnailJPEGData:(id*)arg9 generateFiltersBlock:(void(^)(id))arg10
 {
 	globalFilterHook = YES;
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
-		globalFilterHook = NO;
-	});
-	return %orig;
+	internalBlurHook = YES;
+	BOOL r = %orig();
+	globalFilterHook = NO;
+	internalBlurHook = NO;
+	return r;
 }
 
 %end
@@ -183,7 +252,8 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 - (void)cameraController:(id)controller didStartTransitionToShowEffectsGrid:(BOOL)showEffectsGrid animated:(BOOL)animated
 {
 	%orig;
-	self._bottomBar.hidden = showEffectsGrid;
+	if (AutoHideBB)
+		self._bottomBar.hidden = showEffectsGrid;
 }
 
 %end
@@ -193,13 +263,14 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 // Set the exact cell count per row of the filters grid to fit all filters there
 - (unsigned)_cellsPerRow
 {
-	if ([self _cellCount] <= 9)
+	unsigned filterCount = [[%c(PLEffectFilterManager) sharedInstance] filterCount];
+	if (filterCount <= 9)
 		return %orig;
-	if ([self _cellCount] <= 16)
+	if (filterCount <= 16)
 		return 4;
-	if ([self _cellCount] <= 25)
+	if (filterCount <= 25)
 		return 5;
-	if ([self _cellCount] <= 36)
+	if (filterCount <= 36)
 		return 6;
 	return %orig;
 }
@@ -207,8 +278,10 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 // Return the exact filters count to reduce the CPU processing for filters
 - (unsigned)_cellCount
 {
-	NSMutableDictionary *prefDict = [[NSDictionary dictionaryWithContentsOfFile:PREF_PATH] mutableCopy];
-	return 9 + [[(NSArray *)[prefDict objectForKey:@"EnabledEffects"] mutableCopy] count];
+	if (FillGrid)
+		return %orig;
+	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+	return 9 + [(NSArray *)[prefDict objectForKey:@"EnabledEffects"] count];
 }
 
 // No more internal hook after its -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] call
@@ -276,7 +349,11 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 			[filterName isEqualToString:@"CIMirror"] ||
 			[filterName isEqualToString:@"CITriangleKaleidoscope"] ||
 			[filterName isEqualToString:@"CITwirlDistortion"] ||
-			[filterName isEqualToString:@"CIPinchDistortion"])
+			[filterName isEqualToString:@"CIPinchDistortion"] ||
+			[filterName isEqualToString:@"CIColorMonochrome"] ||
+			[filterName isEqualToString:@"CIColorPosterize"] ||
+			[filterName isEqualToString:@"CISepiaTone"] ||
+			[filterName isEqualToString:@"CIVibrance"])
 			globalFilterHook = YES;
 		CGRect extent = [image extent];
 		CIVector *normalHalfExtent = [CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2];
@@ -305,6 +382,14 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 			[(CITwirlDistortion *)filter setInputRadius:valueCorrection(CITwirlDistortion_inputRadius)];
 			[(CITwirlDistortion *)filter setInputCenter:(orientation == 1 || orientation == 5 || orientation == 6) ? normalHalfExtent : invertHalfExtent];
 		}
+		else if ([filter.name isEqualToString:@"CIGloom"])
+			[(CIGloom *)filter setInputRadius:valueCorrection(CIGloom_inputRadius)];
+		else if ([filter.name isEqualToString:@"CIBloom"])
+			[(CIBloom *)filter setInputRadius:valueCorrection(CIBloom_inputRadius)];
+		else if ([filter.name isEqualToString:@"CIGaussianBlur"])
+			[(CIGaussianBlur *)filter setInputRadius:valueCorrection(CIGaussianBlur_inputRadius)];
+		else if ([filterName isEqualToString:@"CISharpenLuminance"])
+			[(CISharpenLuminance *)filter setInputSharpness:valueCorrection(CISharpenLuminance_inputSharpness)];
 	}
 	// Multiple filters is possible! I will add this feature soon ;)
 	return %orig;
@@ -327,33 +412,21 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFilterManager *manager)
 {
 	CIFilter *filter = [CIFilter filterWithName:filterName];
-	if ([filter.name isEqualToString:@"CIGloom"]) {
+	[filter setDefaults];
+	if ([filter.name isEqualToString:@"CIGloom"])
 		[(CIGloom *)filter setInputIntensity:@(CIGloom_inputIntensity)];
-		[(CIGloom *)filter setInputRadius:@(CIGloom_inputRadius)];
-	}
-	else if ([filter.name isEqualToString:@"CIBloom"]) {
+	else if ([filter.name isEqualToString:@"CIBloom"])
 		[(CIBloom *)filter setInputIntensity:@(CIBloom_inputIntensity)];
-		[(CIBloom *)filter setInputRadius:@(CIBloom_inputRadius)];
-	}
 	else if ([filter.name isEqualToString:@"CITwirlDistortion"])
 		[(CITwirlDistortion *)filter setInputAngle:@(M_PI/2+CITwirlDistortion_inputAngle)];
-	else if ([filter.name isEqualToString:@"CIGaussianBlur"])
-		[(CIGaussianBlur *)filter setInputRadius:@(CIGaussianBlur_inputRadius)];
 	else if ([filterName isEqualToString:@"CIPinchDistortion"])
 		[(CIPinchDistortion *)filter setInputScale:@(CIPinchDistortion_inputScale)];
-	else if ([filterName isEqualToString:@"CIPosterize"])
-		[(CIPosterize *)filter setInputLevels:@(CIPosterize_inputLevels)];
-	else if ([filterName isEqualToString:@"CISepiaTone"])
-		[(CISepiaTone *)filter setInputIntensity:@(CISepiaTone_inputIntensity)];
 	else if ([filterName isEqualToString:@"CIVibrance"])
 		[(CIVibrance *)filter setInputAmount:@(CIVibrance_inputAmount)];
-	else if ([filterName isEqualToString:@"CISharpenLuminance"])
-		[(CISharpenLuminance *)filter setInputSharpness:@(CISharpenLuminance_inputSharpness)];
-	else if ([filterName isEqualToString:@"CIColorMonochrome"]) {
-		[(CIColorMonochrome *)filter setInputIntensity:@(CIColorMonochrome_inputIntensity)];
-		CIColor *color = [CIColor colorWithRed:CIColorMonochrome_R green:CIColorMonochrome_G blue:CIColorMonochrome_B];
-		[(CIColorMonochrome *)filter setInputColor:color];
-	}
+	else if ([filter.name isEqualToString:@"CISepiaTone"])
+		[(CISepiaTone *)filter setInputIntensity:@(CISepiaTone_inputIntensity)];
+	else if ([filterName isEqualToString:@"CIColorMonochrome"])
+		[(CIColorMonochrome *)filter setInputColor:[CIColor colorWithRed:CIColorMonochrome_R green:CIColorMonochrome_G blue:CIColorMonochrome_B]];
 	else if ([filterName isEqualToString:@"CIFalseColor"]) {
 		CIColor *color0 = [CIColor colorWithRed:CIFalseColor_R1 green:CIFalseColor_G1 blue:CIFalseColor_B1];
 		CIColor *color1 = [CIColor colorWithRed:CIFalseColor_R2 green:CIFalseColor_G2 blue:CIFalseColor_B2];
@@ -395,6 +468,9 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 static void EPLoader()
 {
 	NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+	TweakEnabled = [[dict objectForKey:@"Enabled"] boolValue];
+	FillGrid = [[dict objectForKey:@"FillGrid"] boolValue];
+	AutoHideBB = [[dict objectForKey:@"AutoHideBB"] boolValue];
 	#define readFloat(val, defaultVal) \
 		val = [dict objectForKey:[NSString stringWithUTF8String:#val]] ? [[dict objectForKey:[NSString stringWithUTF8String:#val]] floatValue] : defaultVal
 	readFloat(CIColorMonochrome_R, .5);
@@ -409,7 +485,7 @@ static void EPLoader()
 	readFloat(CISepiaTone_inputIntensity, 1);
 	readFloat(CIVibrance_inputAmount, 1);
 	readFloat(CIColorMonochrome_inputIntensity, 1);
-	readFloat(CIPosterize_inputLevels, 6);
+	readFloat(CIColorPosterize_inputLevels, 6);
 	readFloat(CIGloom_inputRadius, 10);
 	readFloat(CIGloom_inputIntensity, 1);
 	readFloat(CIBloom_inputRadius, 10);
@@ -430,7 +506,7 @@ static void EPLoader()
 
 static void PreferencesChangedCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
 {
-	system("killall Camera");
+	system("killall Camera MobileSlideshow");
 	EPLoader();
 }
 
@@ -439,6 +515,10 @@ static void PreferencesChangedCallback(CFNotificationCenterRef center, void *obs
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, PreferencesChangedCallback, CFSTR(PreferencesChangedNotification), NULL, CFNotificationSuspensionBehaviorCoalesce);
 	EPLoader();
+	if (!TweakEnabled) {
+		[pool drain];
+		return;
+	}
 	%init;
 	[pool drain];
 }
