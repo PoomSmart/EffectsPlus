@@ -59,6 +59,8 @@ static float qualityFactor;
 
 %end
 
+NSString * const anotherFilter = nil;
+
 %hook CIFilter
 
 // This method returns filters identifier
@@ -192,11 +194,6 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 %hook CIColorPosterize
 
-/*+ (NSDictionary *)customAttributes
-{
-	return dictionaryByAddingXMPSerializable(%orig);
-}*/
-
 - (void)setInputLevels:(NSNumber *)levels
 {
 	%orig(globalFilterHook ? @(CIColorPosterize_inputLevels) : levels);
@@ -222,27 +219,58 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 %end
 
+/*%new
+- (void)setAnotherFilter:(NSString *)filter
+{
+	objc_setAssociatedObject(self, anotherFilter, filter, OBJC_ASSOCIATION_COPY);
+}
+ 
+%new
+- (NSString *)anotherFilter
+{
+	return objc_getAssociatedObject(self, anotherFilter);
+}
+*/
+
+/*%hook CIThermal
+%end
+
+%hook CIBloom
+%end
+
+%hook CIGloom
+%end
+
+%hook CIPhotoEffectMono
+%end
+
+%hook CIPhotoEffectNoir
+%end
+
+%hook CIPhotoEffectProcess
+%end
+
+%hook CIPhotoEffectTonal
+%end
+
+%hook CIPhotoEffectFade
+%end
+
+%hook CIPhotoEffectChrome
+%end
+
+%hook CIPhotoEffectTransfer
+%end
+
+%hook CIPhotoEffectInstant
+%end*/
+
 %hook PLImageAdjustmentView
 
 // Workaround for preventing the mismatch of image size checking, it causes crashing if the old image size is not equal to the edited image size
 - (void)replaceEditedImage:(UIImage *)image
 {
 	[self setEditedImage:image];
-}
-
-%end
-
-%hook PLImageUtilities
-
-// -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] is called here
-+ (BOOL)generateThumbnailsFromJPEGData:(id)arg1 inputSize:(CGSize)arg2 preCropLargeThumbnailSize:(CGSize)arg3 postCropLargeThumbnailSize:(CGSize)arg4 preCropSmallThumbnailSize:(CGSize)arg5 postCropSmallThumbnailSize:(CGSize)arg6 outSmallThumbnailImageRef:(CGImage*)arg7 outLargeThumbnailImageRef:(CGImage*)arg8 outLargeThumbnailJPEGData:(id*)arg9 generateFiltersBlock:(void(^)(id))arg10
-{
-	globalFilterHook = YES;
-	internalBlurHook = YES;
-	BOOL r = %orig();
-	globalFilterHook = NO;
-	internalBlurHook = NO;
-	return r;
 }
 
 %end
@@ -284,14 +312,6 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 	return 9 + [(NSArray *)[prefDict objectForKey:@"EnabledEffects"] count];
 }
 
-// No more internal hook after its -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] call
-- (void)_renderGridFilters:(id)filters withInputImage:(id)inputImage ciContext:(id)context mirrorRendering:(BOOL)rendering
-{
-	%orig;
-	internalBlurHook = NO;
-	globalFilterHook = NO;
-}
-
 - (void)_updatePixelBufferPoolForSize:(CGSize)size
 {
 	%orig(CGSizeMake(size.width*qualityFactor, size.height*qualityFactor));
@@ -331,6 +351,44 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 %end
 
+static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
+{
+	NSString *filterName = filter.name;
+	CIVector *normalHalfExtent = [CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2];
+	CIVector *invertHalfExtent = [CIVector vectorWithX:extent.size.height/2 Y:extent.size.width/2];
+	BOOL normal = (orientation == 1 || orientation == 3 || orientation == 5 || orientation == 6 || orientation == 8);
+	#define valueCorrection(value) @((extent.size.width/640)*value)
+	if ([filterName isEqualToString:@"CIMirror"]) {
+		[(CIMirror *)filter setInputPoint:normalHalfExtent];
+		if (orientation != 1)
+			[(CIMirror *)filter setInputAngle:@(1.5*M_PI)];
+	}
+	else if ([filterName isEqualToString:@"CITriangleKaleidoscope"]) {
+		[(CITriangleKaleidoscope *)filter setInputPoint:normalHalfExtent];
+		[(CITriangleKaleidoscope *)filter setInputSize:valueCorrection(CITriangleKaleidoscope_inputSize)];
+	}
+	else if ([filterName isEqualToString:@"CIPixellate"])
+		[(CIPixellate *)filter setInputScale:valueCorrection(CIPixellate_inputScale)];
+	else if ([filterName isEqualToString:@"CIStretch"])
+		[(CIStretch *)filter setInputPoint:normal ? normalHalfExtent : invertHalfExtent];
+	else if ([filterName isEqualToString:@"CIPinchDistortion"]) {
+		[(CIPinchDistortion *)filter setInputRadius:valueCorrection(CIPinchDistortion_inputRadius)];
+		[(CIPinchDistortion *)filter setInputCenter:normal ? normalHalfExtent : invertHalfExtent];
+	}
+	else if ([filterName isEqualToString:@"CITwirlDistortion"]) {
+		[(CITwirlDistortion *)filter setInputRadius:valueCorrection(CITwirlDistortion_inputRadius)];
+		[(CITwirlDistortion *)filter setInputCenter:normal ? normalHalfExtent : invertHalfExtent];
+	}
+	else if ([filterName isEqualToString:@"CIGloom"])
+		[(CIGloom *)filter setInputRadius:valueCorrection(CIGloom_inputRadius)];
+	else if ([filterName isEqualToString:@"CIBloom"])
+		[(CIBloom *)filter setInputRadius:valueCorrection(CIBloom_inputRadius)];
+	else if ([filterName isEqualToString:@"CIGaussianBlur"])
+		[(CIGaussianBlur *)filter setInputRadius:valueCorrection(CIGaussianBlur_inputRadius)];
+	else if ([filterName isEqualToString:@"CISharpenLuminance"])
+		[(CISharpenLuminance *)filter setInputSharpness:valueCorrection(CISharpenLuminance_inputSharpness)];
+}
+
 %hook PLCIFilterUtilities
 
 // This method is very important for rendering filters (Yes, more than 1 filter is permitted) onto the image, is used by Camera and Photos app
@@ -339,101 +397,67 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 {
 	if ([filters count] == 0)
 		return %orig; // FIXME: This causes crashing if there are no filters in the array
-	@autoreleasepool {
-		CIFilter *filter = (CIFilter *)[filters objectAtIndex:0];
-		NSString *filterName = filter.name;
-		if ([filterName isEqualToString:@"CIBloom"] || [filterName isEqualToString:@"CIGloom"])
-			internalBlurHook = YES;
-		if ([filterName isEqualToString:@"CIGaussianBlur"] ||
-			[filterName isEqualToString:@"CIStretch"] ||
-			[filterName isEqualToString:@"CIMirror"] ||
-			[filterName isEqualToString:@"CITriangleKaleidoscope"] ||
-			[filterName isEqualToString:@"CITwirlDistortion"] ||
-			[filterName isEqualToString:@"CIPinchDistortion"] ||
-			[filterName isEqualToString:@"CIColorMonochrome"] ||
-			[filterName isEqualToString:@"CIColorPosterize"] ||
-			[filterName isEqualToString:@"CISepiaTone"] ||
-			[filterName isEqualToString:@"CIVibrance"])
-			globalFilterHook = YES;
-		CGRect extent = [image extent];
-		CIVector *normalHalfExtent = [CIVector vectorWithX:extent.size.width/2 Y:extent.size.height/2];
-		CIVector *invertHalfExtent = [CIVector vectorWithX:extent.size.height/2 Y:extent.size.width/2];
-		#define valueCorrection(value) @((extent.size.width/640)*value)
-		if ([filterName isEqualToString:@"CIMirror"]) {
-			[(CIMirror *)filter setInputPoint:normalHalfExtent];
-			if (orientation != 1)
-				[(CIMirror *)filter setInputAngle:@(1.5*M_PI)];
-		}
-		else if ([filterName isEqualToString:@"CITriangleKaleidoscope"]) {
-			[(CITriangleKaleidoscope *)filter setInputPoint:normalHalfExtent];
-			[(CITriangleKaleidoscope *)filter setInputSize:valueCorrection(CITriangleKaleidoscope_inputSize)];
-		}
-		else if ([filterName isEqualToString:@"CIPixellate"]) {
-			[(CIPixellate *)filter setInputScale:valueCorrection(CIPixellate_inputScale)];
-		}
-		else if ([filterName isEqualToString:@"CIStretch"]) {
-			[(CIStretch *)filter setInputPoint:(orientation == 1 || orientation == 5 || orientation == 6) ? normalHalfExtent : invertHalfExtent];
-		}
-		else if ([filterName isEqualToString:@"CIPinchDistortion"]) {
-			[(CIPinchDistortion *)filter setInputRadius:valueCorrection(CIPinchDistortion_inputRadius)];
-			[(CIPinchDistortion *)filter setInputCenter:(orientation == 1 || orientation == 5 || orientation == 6) ? normalHalfExtent : invertHalfExtent];
-		}
-		else if ([filterName isEqualToString:@"CITwirlDistortion"]) {
-			[(CITwirlDistortion *)filter setInputRadius:valueCorrection(CITwirlDistortion_inputRadius)];
-			[(CITwirlDistortion *)filter setInputCenter:(orientation == 1 || orientation == 5 || orientation == 6) ? normalHalfExtent : invertHalfExtent];
-		}
-		else if ([filter.name isEqualToString:@"CIGloom"])
-			[(CIGloom *)filter setInputRadius:valueCorrection(CIGloom_inputRadius)];
-		else if ([filter.name isEqualToString:@"CIBloom"])
-			[(CIBloom *)filter setInputRadius:valueCorrection(CIBloom_inputRadius)];
-		else if ([filter.name isEqualToString:@"CIGaussianBlur"])
-			[(CIGaussianBlur *)filter setInputRadius:valueCorrection(CIGaussianBlur_inputRadius)];
-		else if ([filterName isEqualToString:@"CISharpenLuminance"])
-			[(CISharpenLuminance *)filter setInputSharpness:valueCorrection(CISharpenLuminance_inputSharpness)];
-	}
+	internalBlurHook = YES;
+	globalFilterHook = YES;
+	CGRect extent = [image extent];
+	CIFilter *filter1 = (CIFilter *)[filters objectAtIndex:0];
+	/*CIFilter *anotherFilter = nil;
+	NSString *filter2 = filter1.anotherFilter;*/
+	//BOOL multiple = (filter2 != nil);
+	effectCorrection(filter1, extent, orientation);
+	/*if (multiple) {
+		anotherFilter = [CIFilter filterWithName:filter2];
+		effectCorrection(anotherFilter, extent, orientation);
+	}*/
+	
 	// Multiple filters is possible! I will add this feature soon ;)
-	return %orig;
-}
-
-%end
-
-%hook PLEffectsFullsizeView
-
-// No more internal hook after its -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] call
-- (void)_renderWithInputImage:(id)inputImage ciContext:(id)context mirrorRendering:(BOOL)rendering
-{
-	%orig;
+	CIImage *outputImage = %orig(/*multiple ? @[filter1, anotherFilter] : */filters, image, orientation, copyFirst);
 	internalBlurHook = NO;
 	globalFilterHook = NO;
+	return outputImage;
 }
 
 %end
 
-static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFilterManager *manager)
+static void configEffect(CIFilter *filter)
 {
-	CIFilter *filter = [CIFilter filterWithName:filterName];
-	[filter setDefaults];
 	if ([filter.name isEqualToString:@"CIGloom"])
 		[(CIGloom *)filter setInputIntensity:@(CIGloom_inputIntensity)];
 	else if ([filter.name isEqualToString:@"CIBloom"])
 		[(CIBloom *)filter setInputIntensity:@(CIBloom_inputIntensity)];
 	else if ([filter.name isEqualToString:@"CITwirlDistortion"])
 		[(CITwirlDistortion *)filter setInputAngle:@(M_PI/2+CITwirlDistortion_inputAngle)];
-	else if ([filterName isEqualToString:@"CIPinchDistortion"])
+	else if ([filter.name isEqualToString:@"CIPinchDistortion"])
 		[(CIPinchDistortion *)filter setInputScale:@(CIPinchDistortion_inputScale)];
-	else if ([filterName isEqualToString:@"CIVibrance"])
+	else if ([filter.name isEqualToString:@"CIVibrance"])
 		[(CIVibrance *)filter setInputAmount:@(CIVibrance_inputAmount)];
 	else if ([filter.name isEqualToString:@"CISepiaTone"])
 		[(CISepiaTone *)filter setInputIntensity:@(CISepiaTone_inputIntensity)];
-	else if ([filterName isEqualToString:@"CIColorMonochrome"])
+	else if ([filter.name isEqualToString:@"CIColorMonochrome"])
 		[(CIColorMonochrome *)filter setInputColor:[CIColor colorWithRed:CIColorMonochrome_R green:CIColorMonochrome_G blue:CIColorMonochrome_B]];
-	else if ([filterName isEqualToString:@"CIFalseColor"]) {
+	else if ([filter.name isEqualToString:@"CIFalseColor"]) {
 		CIColor *color0 = [CIColor colorWithRed:CIFalseColor_R1 green:CIFalseColor_G1 blue:CIFalseColor_B1];
 		CIColor *color1 = [CIColor colorWithRed:CIFalseColor_R2 green:CIFalseColor_G2 blue:CIFalseColor_B2];
 		[(CIFalseColor *)filter setInputColor0:color0];
 		[(CIFalseColor *)filter setInputColor1:color1];
 	}
-	[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
+}
+
+static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFilterManager *manager)
+{
+	CIFilter *filter1 = nil;
+	/*NSString *filter2 = nil;
+	NSCharacterSet *s = [NSCharacterSet characterSetWithCharactersInString:@"_"];
+	NSRange r = [filterName rangeOfCharacterFromSet:s];
+	if (r.location != NSNotFound) {
+		NSArray *effects = [filterName componentsSeparatedByString:@"_"];
+		filter1 = [CIFilter filterWithName:(NSString *)[effects objectAtIndex:0]];
+		filter2 = (NSString *)[effects objectAtIndex:1];
+	} else*/
+		filter1 = [CIFilter filterWithName:filterName];
+	//filter1.anotherFilter = filter2;
+	configEffect(filter1);
+	[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter1];
 }
 
 %hook PLEffectFilterManager
@@ -457,7 +481,7 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 			addCIEffect(@"CIPixellate"); addCIEffect(@"CIGaussianBlur"); addCIEffect(@"CIFalseColor");
 			addCIEffect(@"CITwirlDistortion"); addCIEffect(@"CIWrapMirror"); addCIEffect(@"CIStretch");
 			addCIEffect(@"CIMirror"); addCIEffect(@"CITriangleKaleidoscope"); addCIEffect(@"CIPinchDistortion");
-			addCIEffect(@"CIThermal");
+			addCIEffect(@"CIThermal"); //addCIEffect(@"CIBloom_CIThermal");
 		}
 	}
 	return manager;

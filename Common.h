@@ -3,16 +3,19 @@
 #define PREF_PATH @"/var/mobile/Library/Preferences/com.PS.EffectsPlus.plist"
 #define PreferencesChangedNotification "com.PS.EffectsPlus.prefs"
 #define kFontSize 14
+#define NORMAL_EFFECT_COUNT 19
+#define MIXED_EFFECT_COUNT 0
 
 @interface _UIBackdropView : UIView
 @end
 
 @interface CIFilter (Addition)
 @property(retain, nonatomic) CIImage *inputImage;
+//@property (nonatomic, copy) NSString *anotherFilter;
 - (NSDictionary *)_outputProperties;
 @end
 
-@interface CIPosterize : CIFilter
+@interface CIColorPosterize : CIFilter
 @property(retain, nonatomic) NSNumber *inputLevels;
 @end
 
@@ -46,6 +49,9 @@
 
 @interface CIGaussianBlur : CIFilter
 @property(retain, nonatomic) NSNumber *inputRadius;
+@end
+
+@interface CIThermal : CIFilter
 @end
 
 @interface CIPixellate : CIFilter
@@ -137,5 +143,6 @@ static NSString *displayNameFromCIFilterName(NSString *name)
 	EPReturn(@"Triangle", @"CITriangleKaleidoscope");
 	EPReturn(@"Squeeze", @"CIPinchDistortion");
 	EPReturn(@"Thermal", @"CIThermal");
+	//EPReturn(@"Bloom + Thermal", @"CIBloom_CIThermal");
 	return @"";
 }
