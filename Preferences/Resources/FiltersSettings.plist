@@ -10,7 +10,8 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>The value type for text boxes is just a numeric value (NSNumber), you can put them with or without digits.</string>
+			<string>The value type for text boxes is just a numeric value (NSNumber), you can put them with or without digits.
+Options with 3 sliders together are for setting color, in RGB, respectively.</string>
 		</dict>
 
 		<dict>
@@ -99,7 +100,7 @@
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>1.0</real>
+			<real>0.5</real>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -117,7 +118,7 @@
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>1.0</real>
+			<real>0.6</real>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -135,7 +136,7 @@
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>1.0</real>
+			<real>0.7</real>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -288,7 +289,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Pixel</string>
+			<string>Pixel (Pixellate)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -313,7 +314,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Blur</string>
+			<string>Blur (Gaussian Blur)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -352,7 +353,7 @@
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>0.5</real>
+			<real>0.2</real>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -370,7 +371,7 @@
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>0.6</real>
+			<real>0.3</real>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -388,7 +389,7 @@
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>0.7</real>
+			<real>0.5</real>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -412,7 +413,7 @@
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>0.5</real>
+			<real>0.6</real>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -430,7 +431,7 @@
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>0.6</real>
+			<real>0.8</real>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -448,7 +449,7 @@
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>0.7</real>
+			<real>0.9</real>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -473,7 +474,7 @@
 			<key>id</key>
 			<string>CITwirlDistortion_inputRadius</string>
 			<key>default</key>
-			<string>300.00</string>
+			<string>200.00</string>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -514,7 +515,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Triangle</string>
+			<string>Triangle (Kaleidoscope)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -565,7 +566,7 @@
 			<key>id</key>
 			<string>CIPinchDistortion_inputRadius</string>
 			<key>default</key>
-			<string>300.00</string>
+			<string>200.00</string>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
@@ -592,6 +593,49 @@
 			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputScale</string>
+			<key>PostNotification</key>
+			<string>com.PS.EffectsPlus.prefs</string>
+		</dict>
+		
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Light Tunnel</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>id</key>
+			<string>CILightTunnel_inputRadius</string>
+			<key>default</key>
+			<string>90.00</string>
+			<key>defaults</key>
+			<string>com.PS.EffectsPlus</string>
+			<key>key</key>
+			<string>CILightTunnel_inputRadius</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
+			<key>label</key>
+			<string>inputRadius</string>
+			<key>PostNotification</key>
+			<string>com.PS.EffectsPlus.prefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>id</key>
+			<string>CILightTunnel_inputRotation</string>
+			<key>default</key>
+			<string>0.00</string>
+			<key>defaults</key>
+			<string>com.PS.EffectsPlus</string>
+			<key>key</key>
+			<string>CILightTunnel_inputRotation</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
+			<key>label</key>
+			<string>inputRotation</string>
 			<key>PostNotification</key>
 			<string>com.PS.EffectsPlus.prefs</string>
 		</dict>

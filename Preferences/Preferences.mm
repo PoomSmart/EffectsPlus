@@ -47,28 +47,43 @@
 	return _tableView;
 }
 
+- (void)effectAddDefaults:(NSMutableArray *)effects
+{
+	[effects addObject:@"CIPhotoEffectMono"]; [effects addObject:@"CIPhotoEffectNoir"];
+	[effects addObject:@"CIPhotoEffectFade"]; [effects addObject:@"CIPhotoEffectChrome"];
+	[effects addObject:@"CIPhotoEffectProcess"]; [effects addObject:@"CIPhotoEffectTransfer"];
+	[effects addObject:@"CIPhotoEffectInstant"]; [effects addObject:@"CIPhotoEffectTonal"];
+}
+
+- (void)effectAddExtras:(NSMutableArray *)effects
+{
+	[effects addObject:@"CISepiaTone"];	[effects addObject:@"CIVibrance"];
+	[effects addObject:@"CIColorMonochrome"]; [effects addObject:@"CIColorPosterize"];
+	[effects addObject:@"CIGloom"]; [effects addObject:@"CIBloom"];
+	[effects addObject:@"CISharpenLuminance"]; [effects addObject:@"CILinearToSRGBToneCurve"];
+	[effects addObject:@"CIPixellate"]; [effects addObject:@"CIGaussianBlur"];
+	[effects addObject:@"CIFalseColor"]; [effects addObject:@"CIWrapMirror"];
+	
+	[effects addObject:@"CIColorInvert"]; [effects addObject:@"CITwirlDistortion"];
+	[effects addObject:@"CIStretch"]; [effects addObject:@"CIMirror"];
+	[effects addObject:@"CITriangleKaleidoscope"]; [effects addObject:@"CIPinchDistortion"];
+	[effects addObject:@"CIThermal"]; [effects addObject:@"CILightTunnel"];
+}
+
 - (void)initEnabledEffects
 {
 	self.enabledEffects = [NSMutableArray array];
-	[self.enabledEffects addObject:@"CISepiaTone"]; [self.enabledEffects addObject:@"CIVibrance"];
-	[self.enabledEffects addObject:@"CIColorInvert"]; [self.enabledEffects addObject:@"CIColorMonochrome"];
-	[self.enabledEffects addObject:@"CIColorPosterize"]; [self.enabledEffects addObject:@"CIGloom"];
-	[self.enabledEffects addObject:@"CIBloom"]; [self.enabledEffects addObject:@"CISharpenLuminance"];
-	[self.enabledEffects addObject:@"CILinearToSRGBToneCurve"]; [self.enabledEffects addObject:@"CIPixellate"];
-	[self.enabledEffects addObject:@"CIGaussianBlur"]; [self.enabledEffects addObject:@"CIFalseColor"];
-	[self.enabledEffects addObject:@"CITwirlDistortion"]; [self.enabledEffects addObject:@"CIWrapMirror"];
-	[self.enabledEffects addObject:@"CIStretch"]; [self.enabledEffects addObject:@"CIMirror"];
-	[self.enabledEffects addObject:@"CITriangleKaleidoscope"]; [self.enabledEffects addObject:@"CIPinchDistortion"];
-	[self.enabledEffects addObject:@"CIThermal"];
+	[self effectAddDefaults:self.enabledEffects];
 }
 
 - (void)toggleFiltersArray
 {
 	NSString *title = self.toggleBtn.title;
 	if ([title isEqualToString:@"Reset"]) {
-		self.enabledEffects = nil;
+		self.enabledEffects = [NSMutableArray array];
+		[self effectAddDefaults:self.enabledEffects];
 		self.disabledEffects = [NSMutableArray array];
-		[self initEnabledEffects];
+		[self effectAddExtras:self.disabledEffects];
 	}
 	else if ([title isEqualToString:@"Enable All"]) {
 		[self.enabledEffects addObjectsFromArray:self.disabledEffects];
@@ -89,14 +104,10 @@
 	NSString *title = @"Reset";
 	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 	if (prefDict != nil) {
-		if (self.enabledEffects != nil) {
-			if ([self.enabledEffects count] == NORMAL_EFFECT_COUNT)
-				title = @"Disable All";
-		}
-		if (self.disabledEffects != nil) {
-			if ([self.disabledEffects count] == NORMAL_EFFECT_COUNT)
-				title = @"Enable All";
-		}
+		if ([self.disabledEffects count] == 0)
+			title = @"Disable All";
+		if ([self.enabledEffects count] == 0)
+			title = @"Enable All";
 	}
 	[self.toggleBtn release];
 	self.toggleBtn = [[UIBarButtonItem alloc]
@@ -131,7 +142,7 @@
 {
 	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 	if (prefDict == nil)
-		return section == 0 ? NORMAL_EFFECT_COUNT : MIXED_EFFECT_COUNT;
+		return section == 0 ? NORMAL_EFFECT_COUNT : EXTRA_EFFECT_COUNT;
 	switch (section) {
 		case 0: {
 			if (self.enabledEffects == nil)
@@ -140,7 +151,7 @@
 		}
 		case 1: {
 			if (self.disabledEffects == nil)
-				return MIXED_EFFECT_COUNT;
+				return EXTRA_EFFECT_COUNT;
 			return [self.disabledEffects count];
 		}
 	}
@@ -150,6 +161,16 @@
 - (BOOL)tableView:(UITableView *)view shouldHighlightRowAtIndexPath:(NSIndexPath *)indexPath
 {
 	return NO;
+}
+
+- (BOOL)tableView:(UITableView *)view shouldIndentWhileEditingRowAtIndexPath:(NSIndexPath *)indexPath
+{
+	return NO;
+}
+
+- (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath
+{
+	return YES;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
@@ -173,38 +194,35 @@
 
 - (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)fromIndexPath toIndexPath:(NSIndexPath *)toIndexPath
 {
+	if (fromIndexPath.row == toIndexPath.row && fromIndexPath.section == toIndexPath.section)
+		return;
 	if (fromIndexPath.section == 0 && toIndexPath.section == 0) {
-		NSString *stringToMove = [self.enabledEffects objectAtIndex:fromIndexPath.row];
+		NSString *stringToMove = [[self.enabledEffects objectAtIndex:fromIndexPath.row] retain];
     	[self.enabledEffects removeObjectAtIndex:fromIndexPath.row];
     	[self.enabledEffects insertObject:stringToMove atIndex:toIndexPath.row];
     }
     else if (fromIndexPath.section == 1 && toIndexPath.section == 1) {
-		NSString *stringToMove = [self.disabledEffects objectAtIndex:fromIndexPath.row];
+		NSString *stringToMove = [[self.disabledEffects objectAtIndex:fromIndexPath.row] retain];
     	[self.disabledEffects removeObjectAtIndex:fromIndexPath.row];
     	[self.disabledEffects insertObject:stringToMove atIndex:toIndexPath.row];
     }
     else if (fromIndexPath.section == 0 && toIndexPath.section == 1) {
-		NSString *stringToMove = [self.enabledEffects objectAtIndex:fromIndexPath.row];
+		NSString *stringToMove = [[self.enabledEffects objectAtIndex:fromIndexPath.row] retain];
     	[self.enabledEffects removeObjectAtIndex:fromIndexPath.row];
     	[self.disabledEffects insertObject:stringToMove atIndex:toIndexPath.row];
     }
     else if (fromIndexPath.section == 1 && toIndexPath.section == 0) {
-		NSString *stringToMove = [self.disabledEffects objectAtIndex:fromIndexPath.row];
+		NSString *stringToMove = [[self.disabledEffects objectAtIndex:fromIndexPath.row] retain];
     	[self.disabledEffects removeObjectAtIndex:fromIndexPath.row];
     	[self.enabledEffects insertObject:stringToMove atIndex:toIndexPath.row];
     }
-    [self saveSettings];
-    [self setToggleTitle];
+	[self saveSettings];
+	[self setToggleTitle];
 }
 
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath
 {
 	return UITableViewCellEditingStyleNone;
-}
-
-- (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath
-{
-	return YES;
 }
 
 - (id)initForContentSize:(CGSize)size
@@ -215,23 +233,28 @@
 		[_tableView setDelegate:self];
 		[_tableView setAutoresizingMask:1];
 		[_tableView setEditing:YES];
-		[_tableView setAllowsSelectionDuringEditing:YES];
+		//[_tableView setAllowsSelectionDuringEditing:YES];
 		if ([self respondsToSelector:@selector(setView:)])
 			[self setView:_tableView];
 		if (self.enabledEffects == nil)
 			[self initEnabledEffects];
 		if (self.disabledEffects == nil) {
 			self.disabledEffects = [NSMutableArray array];
+			[self effectAddExtras:self.disabledEffects];
 			//[self.disabledEffects addObject:@"CIBloom_CIThermal"];
 		}
-		NSMutableDictionary *prefDict = [[NSDictionary dictionaryWithContentsOfFile:PREF_PATH] mutableCopy];
+		NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 		if (prefDict != nil) {
-			if ([prefDict objectForKey:@"EnabledEffects"] != nil)
+			if ([prefDict objectForKey:@"EnabledEffects"] != nil) {
 				self.enabledEffects = [[prefDict objectForKey:@"EnabledEffects"] mutableCopy];
-			if ([prefDict objectForKey:@"DisabledEffects"] != nil)
+				if ([self.enabledEffects count] == 0)
+					self.enabledEffects = [NSMutableArray array];
+			}
+			if ([prefDict objectForKey:@"DisabledEffects"] != nil) {
 				self.disabledEffects = [[prefDict objectForKey:@"DisabledEffects"] mutableCopy];
-			else
-				self.disabledEffects = [NSMutableArray array];
+				if ([self.disabledEffects count] == 0)
+					self.disabledEffects = [NSMutableArray array];
+			}
 		}
 	}
 	return self;
@@ -240,7 +263,11 @@
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
 	UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"effect"];
-    
+	UIColor *stockColor = [UIColor colorWithRed:.8 green:.9 blue:.9 alpha:1];
+	UIColor *pbColor = [UIColor colorWithRed:1 green:.8 blue:.8 alpha:1];
+	NSArray *pbArray = @[@"CIColorInvert", @"CITwirlDistortion", @"CIStretch", @"CIMirror", @"CITriangleKaleidoscope", @"CIPinchDistortion", @"CIThermal", @"CILightTunnel"];
+	NSBundle *plBundle = [NSBundle bundleWithIdentifier:@"com.apple.PhotoLibrary"];
+	NSBundle *mainBundle = [NSBundle bundleWithIdentifier:@"com.PS.EffectsPlusPref"];
 	if (cell == nil) {
 		cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"effect"] autorelease];
 		[cell.textLabel setNumberOfLines:0];
@@ -248,12 +275,54 @@
 		[cell.textLabel setFont:[UIFont systemFontOfSize:kFontSize]];
 	}
 	if (indexPath.section == 0) {
-		if ([self.enabledEffects count] - 1 >= indexPath.row)
-    		[cell.textLabel setText:displayNameFromCIFilterName([self.enabledEffects objectAtIndex:indexPath.row])];
+		if ([self.enabledEffects count] - 1 >= indexPath.row) {
+			NSString *enabledName = [self.enabledEffects objectAtIndex:indexPath.row];
+    		[cell.textLabel setText:displayNameFromCIFilterName(enabledName)];
+    		if ([enabledName hasPrefix:@"CIPhotoEffect"]) {
+				[cell setBackgroundColor:stockColor];
+				[[cell imageView] setImage:[UIImage imageNamed:@"CAMFilterButtonOn" inBundle:plBundle]];
+			}
+    		else {
+    			int i = 0;
+    			for (NSString *name in pbArray) {
+    				if ([name isEqualToString:enabledName])
+    					i++;
+    			}
+    			if (i > 0) {
+    				[[cell imageView] setImage:[UIImage imageNamed:@"PB" inBundle:mainBundle]];
+    				[cell setBackgroundColor:pbColor];
+    			}
+    			else {
+    				[[cell imageView] setImage:[UIImage imageNamed:@"CAMFilterButton" inBundle:plBundle]];
+    				[cell setBackgroundColor:[UIColor clearColor]];
+    			}
+    		}
+    	}
     }
     else if (indexPath.section == 1) {
-    	if ([self.disabledEffects count] - 1 >= indexPath.row)
-    		[cell.textLabel setText:displayNameFromCIFilterName([self.disabledEffects objectAtIndex:indexPath.row])];
+    	if ([self.disabledEffects count] - 1 >= indexPath.row) {
+    		NSString *disabledName = [self.disabledEffects objectAtIndex:indexPath.row];
+    		[cell.textLabel setText:displayNameFromCIFilterName(disabledName)];
+    		if ([disabledName hasPrefix:@"CIPhotoEffect"]) {
+				[cell setBackgroundColor:stockColor];
+				[[cell imageView] setImage:[UIImage imageNamed:@"CAMFilterButtonOn" inBundle:plBundle]];
+			}
+    		else {
+				int i = 0;
+    			for (NSString *name in pbArray) {
+    				if ([name isEqualToString:disabledName])
+    					i++;
+    			}
+    			if (i > 0) {
+    				[[cell imageView] setImage:[UIImage imageNamed:@"PB" inBundle:mainBundle]];
+    				[cell setBackgroundColor:pbColor];
+    			}
+    			else {
+    				[[cell imageView] setImage:[UIImage imageNamed:@"CAMFilterButton" inBundle:plBundle]];
+    				[cell setBackgroundColor:[UIColor clearColor]];
+    			}
+			}
+    	}
     }
     return cell;
 }
@@ -324,6 +393,11 @@
 @end
 
 @implementation EffectsPlusPrefController
+
+- (void)donate:(id)param
+{
+	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=GBQGZL8EFMM86"]];
+}
 
 - (NSArray *)specifiers
 {

@@ -1,6 +1,7 @@
 #import "../Common.h"
 #import <CoreImage/CIFilter.h>
 #import <ImageIO/ImageIO.h>
+#import <CoreMedia/CoreMedia.h>
 
 static BOOL TweakEnabled;
 static BOOL FillGrid;
@@ -25,6 +26,7 @@ static float CIFalseColor_R2, CIFalseColor_G2, CIFalseColor_B2;
 static float CITwirlDistortion_inputRadius, CITwirlDistortion_inputAngle;
 static float CITriangleKaleidoscope_inputSize, CITriangleKaleidoscope_inputDecay;
 static float CIPinchDistortion_inputRadius, CIPinchDistortion_inputScale;
+static float CILightTunnel_inputRadius, CILightTunnel_inputRotation;
 
 static float qualityFactor;
 
@@ -59,7 +61,7 @@ static float qualityFactor;
 
 %end
 
-NSString * const anotherFilter = nil;
+//NSString * const anotherFilter = nil;
 
 %hook CIFilter
 
@@ -161,6 +163,15 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 %end
 
 %hook CIPinchDistortion
+
+- (CIImage *)outputImage
+{
+	return ciImageInternalFixIfNecessary(%orig, self);
+}
+
+%end
+
+%hook CILightTunnel
 
 - (CIImage *)outputImage
 {
@@ -324,7 +335,7 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 %end
 
-%hook PLEffectsGridLabelsView
+/*%hook PLEffectsGridLabelsView
 
 - (void)_replaceLabelViews:(id)view
 {
@@ -349,7 +360,7 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 	return nil;
 }
 
-%end
+%end*/
 
 static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 {
@@ -378,6 +389,10 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	else if ([filterName isEqualToString:@"CITwirlDistortion"]) {
 		[(CITwirlDistortion *)filter setInputRadius:valueCorrection(CITwirlDistortion_inputRadius)];
 		[(CITwirlDistortion *)filter setInputCenter:normal ? normalHalfExtent : invertHalfExtent];
+	}
+	else if ([filterName isEqualToString:@"CILightTunnel"]) {
+		[(CILightTunnel *)filter setInputRadius:valueCorrection(CILightTunnel_inputRadius)];
+		[(CILightTunnel *)filter setInputCenter:normal ? normalHalfExtent : invertHalfExtent];
 	}
 	else if ([filterName isEqualToString:@"CIGloom"])
 		[(CIGloom *)filter setInputRadius:valueCorrection(CIGloom_inputRadius)];
@@ -441,10 +456,14 @@ static void configEffect(CIFilter *filter)
 		[(CIFalseColor *)filter setInputColor0:color0];
 		[(CIFalseColor *)filter setInputColor1:color1];
 	}
+	else if ([filter.name isEqualToString:@"CILightTunnel"])
+		[(CILightTunnel *)filter setInputRotation:@(CILightTunnel_inputRotation)];
 }
 
 static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFilterManager *manager)
 {
+	if ([filterName hasPrefix:@"CIPhotoEffect"])
+		return;
 	CIFilter *filter1 = nil;
 	/*NSString *filter2 = nil;
 	NSCharacterSet *s = [NSCharacterSet characterSetWithCharactersInString:@"_"];
@@ -470,18 +489,66 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 		NSMutableDictionary *prefDict = [[NSDictionary dictionaryWithContentsOfFile:PREF_PATH] mutableCopy];
 		if (prefDict != nil) {
 			NSMutableArray *effects = [[prefDict objectForKey:@"EnabledEffects"] mutableCopy];
+			if (effects == nil)
+				return manager;
 			for (int i=0;i<[effects count];i++) {
 				NSString *string = [effects objectAtIndex:i];
 				addCIEffect(string);
 			}
-		} else {
-			addCIEffect(@"CISepiaTone"); addCIEffect(@"CIVibrance"); addCIEffect(@"CIColorInvert");
-			addCIEffect(@"CIColorMonochrome"); addCIEffect(@"CIColorPosterize"); addCIEffect(@"CIGloom");
-			addCIEffect(@"CIBloom"); addCIEffect(@"CISharpenLuminance"); addCIEffect(@"CILinearToSRGBToneCurve");
-			addCIEffect(@"CIPixellate"); addCIEffect(@"CIGaussianBlur"); addCIEffect(@"CIFalseColor");
-			addCIEffect(@"CITwirlDistortion"); addCIEffect(@"CIWrapMirror"); addCIEffect(@"CIStretch");
-			addCIEffect(@"CIMirror"); addCIEffect(@"CITriangleKaleidoscope"); addCIEffect(@"CIPinchDistortion");
-			addCIEffect(@"CIThermal"); //addCIEffect(@"CIBloom_CIThermal");
+
+			// Sorting codes!
+			NSMutableArray *array = [NSMutableArray array];
+			NSMutableArray *allEffects = MSHookIvar<NSMutableArray *>(self, "_effects");
+			NSMutableArray *names = MSHookIvar<NSMutableArray *>(self, "_names");
+			NSMutableArray *aggdNames = MSHookIvar<NSMutableArray *>(self, "_aggdNames");
+			for (int i = 0; i < [allEffects count]; i++) {
+				NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
+										(CIFilter *)[allEffects objectAtIndex:i], @"Filter",
+										[names objectAtIndex:i], @"displayName",
+										[aggdNames objectAtIndex:i], @"aggdName", nil];
+				[array addObject:dict];
+			}
+			for (int i=0;i<[effects count];i++) {
+				NSString *string1 = [effects objectAtIndex:i];
+				NSString *string2 = ((CIFilter *)[[array objectAtIndex:i] objectForKey:@"Filter"]).name;
+				if (![string1 isEqualToString:string2]) {
+					for (int j=0;j<[array count];j++) {
+						NSString *string3 = ((CIFilter *)[[array objectAtIndex:j] objectForKey:@"Filter"]).name;
+						if ([string3 isEqualToString:string1])
+							[array exchangeObjectAtIndex:i withObjectAtIndex:j];
+					}
+				}
+			}
+			NSMutableArray *disabledEffects = [[prefDict objectForKey:@"DisabledEffects"] mutableCopy];
+			BOOL deleteSome = (disabledEffects != nil);
+			if (deleteSome) {
+				for (int i=0;i<[disabledEffects count];i++) {
+					for (int j=0;j<[array count];j++) {
+						if ([((CIFilter *)[[array objectAtIndex:j] objectForKey:@"Filter"]).name isEqualToString:[disabledEffects objectAtIndex:i]])
+							[array removeObjectAtIndex:j];
+					}
+				}
+			}
+			
+			// Apply the sorted stuffs
+			NSMutableArray *a1 = [NSMutableArray array];
+			for (int i=0;i<[array count];i++) {
+				[a1 addObject:[[array objectAtIndex:i] objectForKey:@"Filter"]];
+			}
+			[MSHookIvar<NSMutableArray *>(self, "_effects") setArray:a1];
+			
+			NSMutableArray *a2 = [NSMutableArray array];
+			for (int i=0;i<[array count];i++) {
+				[a2 addObject:[[array objectAtIndex:i] objectForKey:@"displayName"]];
+			}
+			[MSHookIvar<NSMutableArray *>(self, "_names") setArray:a2];
+			
+			NSMutableArray *a3 = [NSMutableArray array];
+			for (int i=0;i<[array count];i++) {
+				[a3 addObject:[[array objectAtIndex:i] objectForKey:@"aggdName"]];
+			}
+			[MSHookIvar<NSMutableArray *>(self, "_aggdNames") setArray:a3];
+			
 		}
 	}
 	return manager;
@@ -500,12 +567,12 @@ static void EPLoader()
 	readFloat(CIColorMonochrome_R, .5);
 	readFloat(CIColorMonochrome_G, .6);
 	readFloat(CIColorMonochrome_B, .7);
-	readFloat(CIFalseColor_R1, .5);
-	readFloat(CIFalseColor_G1, .6);
-	readFloat(CIFalseColor_B1, .7);
-	readFloat(CIFalseColor_R2, .5);
-	readFloat(CIFalseColor_G2, .6);
-	readFloat(CIFalseColor_B2, .7);
+	readFloat(CIFalseColor_R1, .2);
+	readFloat(CIFalseColor_G1, .3);
+	readFloat(CIFalseColor_B1, .5);
+	readFloat(CIFalseColor_R2, .6);
+	readFloat(CIFalseColor_G2, .8);
+	readFloat(CIFalseColor_B2, .9);
 	readFloat(CISepiaTone_inputIntensity, 1);
 	readFloat(CIVibrance_inputAmount, 1);
 	readFloat(CIColorMonochrome_inputIntensity, 1);
@@ -517,13 +584,15 @@ static void EPLoader()
 	readFloat(CISharpenLuminance_inputSharpness, .4);
 	readFloat(CIPixellate_inputScale, 8);
 	readFloat(CIGaussianBlur_inputRadius, 10);
-	readFloat(CITwirlDistortion_inputRadius, 300);
+	readFloat(CITwirlDistortion_inputRadius, 200);
 	readFloat(CITwirlDistortion_inputAngle, 3.14);
 	CITwirlDistortion_inputAngle *= M_PI/180;
 	readFloat(CITriangleKaleidoscope_inputSize, 300);
 	readFloat(CITriangleKaleidoscope_inputDecay, .85);
-	readFloat(CIPinchDistortion_inputRadius, 300);
+	readFloat(CIPinchDistortion_inputRadius, 200);
 	readFloat(CIPinchDistortion_inputScale, .5);
+	readFloat(CILightTunnel_inputRadius, 90);
+	readFloat(CILightTunnel_inputRotation, 0);
 	
 	readFloat(qualityFactor, 1);
 }

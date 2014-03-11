@@ -3,8 +3,8 @@
 #define PREF_PATH @"/var/mobile/Library/Preferences/com.PS.EffectsPlus.plist"
 #define PreferencesChangedNotification "com.PS.EffectsPlus.prefs"
 #define kFontSize 14
-#define NORMAL_EFFECT_COUNT 19
-#define MIXED_EFFECT_COUNT 0
+#define NORMAL_EFFECT_COUNT 8
+#define EXTRA_EFFECT_COUNT 20
 
 @interface _UIBackdropView : UIView
 @end
@@ -91,6 +91,12 @@
 @property(retain, nonatomic) CIVector *inputPoint;
 @end
 
+@interface CILightTunnel : CIFilter
+@property(retain, nonatomic) CIVector *inputCenter;
+@property(retain, nonatomic) NSNumber *inputRotation;
+@property(retain, nonatomic) NSNumber *inputRadius;
+@end
+
 @interface PLEffectFilterManager : NSObject
 + (id)sharedInstance;
 - (id)aggdNameForFilter:(id)filter;
@@ -121,9 +127,22 @@
 @property(readonly, assign, nonatomic) CAMBottomBar* _bottomBar;
 @end
 
+@interface UIImage (Addition)
++ (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle;
+@end
+
 static NSString *displayNameFromCIFilterName(NSString *name)
 {
 	#define EPReturn(name1, name2) if ([name isEqualToString:name2]) return name1
+	EPReturn(@"Mono", @"CIPhotoEffectMono");
+	EPReturn(@"Noir", @"CIPhotoEffectNoir");
+	EPReturn(@"Fade", @"CIPhotoEffectFade");
+	EPReturn(@"Chrome", @"CIPhotoEffectChrome");
+	EPReturn(@"Process", @"CIPhotoEffectProcess");
+	EPReturn(@"Transfer", @"CIPhotoEffectTransfer");
+	EPReturn(@"Instant", @"CIPhotoEffectInstant");
+	EPReturn(@"Tonal", @"CIPhotoEffectTonal");
+	
 	EPReturn(@"Sepia", @"CISepiaTone");
 	EPReturn(@"Vibrance", @"CIVibrance");
 	EPReturn(@"Invert", @"CIColorInvert");
@@ -143,6 +162,7 @@ static NSString *displayNameFromCIFilterName(NSString *name)
 	EPReturn(@"Triangle", @"CITriangleKaleidoscope");
 	EPReturn(@"Squeeze", @"CIPinchDistortion");
 	EPReturn(@"Thermal", @"CIThermal");
+	EPReturn(@"Light Tunnel", @"CILightTunnel");
 	//EPReturn(@"Bloom + Thermal", @"CIBloom_CIThermal");
 	return @"";
 }

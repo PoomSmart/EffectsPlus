@@ -21,7 +21,7 @@
 			<key>label</key>
 			<string>Effects+</string>
 			<key>footerText</key>
-			<string>Enabling every filters is not a good idea because too many filters causes the lag.</string>
+			<string>Enabling every filters is not a good idea because too many filters can causes the lag.</string>
 		</dict>
       <dict>
         	<key>cell</key>
@@ -67,7 +67,7 @@
 			<key>label</key>
 			<string>Live Filters Quality</string>
 			<key>footerText</key>
-			<string>Adjust the quality factor of filters in the filters selection page in camera app. This option may be necessary if you face the lag because of many filters there.</string>
+			<string>Adjust the quality factor of filters list page in camera app. This option may be necessary if you face the lag because of many filters there.</string>
 		</dict>
 		 <dict>
 			<key>PostNotification</key>
@@ -93,7 +93,7 @@
 			<key>label</key>
 			<string>Fill filters list</string>
 			<key>footerText</key>
-			<string>Replace the empty black space in filters selection view with empty filter view(s).</string>
+			<string>Replace the empty black space in filters list view with the normal view(s) without filter.</string>
 		</dict>
 		<dict>
         	<key>cell</key>
@@ -132,10 +132,30 @@
         	<string>com.PS.EffectsPlus.prefs</string>
       </dict>
       <dict>
+      		<key>cell</key>
+      		<string>PSGroupCell</string>
+      </dict>
+      <dict>
+      		<key>cell</key>
+      		<string>PSButtonCell</string>
+      		<key>action</key>
+      		<string>donate:</string>
+      		<key>label</key>
+      		<string>Donate</string>
+      </dict>
+      <dict>
         <key>cell</key>
         <string>PSGroupCell</string>
         <key>footerText</key>
-        <string>© 2013 - 2014 Thuchapol Unprasert
+        <string>Developer's notes
+• The camera app live filters implementation by Apple performance is poor, unlike Photo Booth app, which achieves better performance. So you may face the lag issue in camera app when viewing the filters list.
+• Multiple filters at once is possible, but not implemented yet. I'm working on this.
+• Bloom and Gloom filter consume most memory because they both blurs and glows, also resizes (Resizing gives smaller image, the fix is included) the input image. Enabling both filters at the same time can causes much lag.
+• Filters list count is not less than 9 even you have less than 9 filters enabled.
+• Sometimes when you took a photo with some extra filter applied, and you are going to edit the photo in the album, the applied filter maybe reset to non-filter.
+• There are no way to reposition the non-filter view in filters list (in the middle with tweak disabled) in camera app yet.
+   
+© 2013 - 2014 Thuchapol Unprasert
 (@PoomSmart)</string>
       </dict>
     </array>
