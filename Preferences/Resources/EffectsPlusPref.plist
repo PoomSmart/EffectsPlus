@@ -148,7 +148,7 @@
         <string>PSGroupCell</string>
         <key>footerText</key>
         <string>Developer's notes
-• The camera app live filters implementation by Apple performance is poor, unlike Photo Booth app, which achieves better performance. So you may face the lag issue in camera app when viewing the filters list.
+• (Important) The camera app live filters implementation by Apple performance is poor, unlike Photo Booth app, which achieves better performance. So you may face the lag issue in camera app when viewing the filters list.
 • Multiple filters at once is possible, but not implemented yet. I'm working on this.
 • Bloom and Gloom filter consume most memory because they both blurs and glows, also resizes (Resizing gives smaller image, the fix is included) the input image. Enabling both filters at the same time can causes much lag.
 • Filters list count is not less than 9 even you have less than 9 filters enabled.
