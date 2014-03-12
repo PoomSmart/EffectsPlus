@@ -1,6 +1,6 @@
 GO_EASY_ON_ME = 1
 
-ARCHS = armv7 arm64
+ARCHS = armv7 armv7s arm64
 
 BUNDLE_NAME = EffectsPlusPref
 EffectsPlusPref_FILES = Preferences.mm

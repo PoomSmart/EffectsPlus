@@ -39,8 +39,10 @@
       </dict>
       <dict>
 			<key>cell</key>
-			<string>PSLinkCell</string>
+			<string>PSLinkListCell</string>
 			<key>label</key>
+			<string>Select Filters</string>
+			<key>name</key>
 			<string>Select Filters</string>
 			<key>detail</key>
 			<string>EffectsPlusFiltersSelectionController</string>
@@ -151,8 +153,6 @@
 • (Important) The camera app live filters implementation by Apple performance is poor, unlike Photo Booth app, which achieves better performance. So you may face the lag issue in camera app when viewing the filters list.
 • Multiple filters at once is possible, but not implemented yet. I'm working on this.
 • Bloom and Gloom filter consume most memory because they both blurs and glows, also resizes (Resizing gives smaller image, the fix is included) the input image. Enabling both filters at the same time can causes much lag.
-• Filters list count is not less than 9 even you have less than 9 filters enabled.
-• Sometimes when you took a photo with some extra filter applied, and you are going to edit the photo in the album, the applied filter maybe reset to non-filter.
 • There are no way to reposition the non-filter view in filters list (in the middle with tweak disabled) in camera app yet.
    
 © 2013 - 2014 Thuchapol Unprasert

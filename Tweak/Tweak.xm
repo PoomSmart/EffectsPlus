@@ -38,27 +38,6 @@ static float qualityFactor;
 	return [filter _outputProperties];
 }
 
-// -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] is called here
-- (CIImage *)filteredImage:(CIImage *)inputImage withCIContext:(CIContext *)context
-{
-	globalFilterHook = YES;
-	internalBlurHook = YES;
-	CIImage *outputImage = %orig();
-	globalFilterHook = NO;
-	internalBlurHook = NO;
-	return outputImage;
-}
-
-// -[PLCIFilterUtilities outputImageFromFilters:inputImage:orientation:copyFiltersFirst:] is called here
-- (void)generateThumbnailsWithImageSource:(CGImageSourceRef)arg1 imageData:(id)arg2 updateExistingLargePreview:(BOOL)arg3 allowMediumPreview:(BOOL)arg4 outSmallThumbnail:(id *)arg5 outLargeThumbnail:(id *)arg6
-{
-	globalFilterHook = YES;
-	internalBlurHook = YES;
-	%orig;
-	globalFilterHook = NO;
-	internalBlurHook = NO;
-}
-
 %end
 
 //NSString * const anotherFilter = nil;
@@ -245,46 +224,26 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 /*%hook CIThermal
 %end
-
 %hook CIBloom
 %end
-
 %hook CIGloom
 %end
-
 %hook CIPhotoEffectMono
 %end
-
 %hook CIPhotoEffectNoir
 %end
-
 %hook CIPhotoEffectProcess
 %end
-
 %hook CIPhotoEffectTonal
 %end
-
 %hook CIPhotoEffectFade
 %end
-
 %hook CIPhotoEffectChrome
 %end
-
 %hook CIPhotoEffectTransfer
 %end
-
 %hook CIPhotoEffectInstant
 %end*/
-
-%hook PLImageAdjustmentView
-
-// Workaround for preventing the mismatch of image size checking, it causes crashing if the old image size is not equal to the edited image size
-- (void)replaceEditedImage:(UIImage *)image
-{
-	[self setEditedImage:image];
-}
-
-%end
 
 %hook PLCameraView
 
@@ -302,7 +261,7 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 // Set the exact cell count per row of the filters grid to fit all filters there
 - (unsigned)_cellsPerRow
 {
-	unsigned filterCount = [[%c(PLEffectFilterManager) sharedInstance] filterCount];
+	unsigned filterCount = 1 + [[%c(PLEffectFilterManager) sharedInstance] filterCount];
 	if (filterCount <= 9)
 		return %orig;
 	if (filterCount <= 16)
@@ -320,7 +279,8 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 	if (FillGrid)
 		return %orig;
 	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
-	return 9 + [(NSArray *)[prefDict objectForKey:@"EnabledEffects"] count];
+	NSArray *enabledArray = (NSArray *)[prefDict objectForKey:ENABLED_EFFECT];
+	return enabledArray != nil ? 1 + [enabledArray count] : %orig;
 }
 
 - (void)_updatePixelBufferPoolForSize:(CGSize)size
@@ -402,6 +362,14 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 		[(CIGaussianBlur *)filter setInputRadius:valueCorrection(CIGaussianBlur_inputRadius)];
 	else if ([filterName isEqualToString:@"CISharpenLuminance"])
 		[(CISharpenLuminance *)filter setInputSharpness:valueCorrection(CISharpenLuminance_inputSharpness)];
+	else if ([filterName isEqualToString:@"CIColorMonochrome"])
+		[(CIColorMonochrome *)filter setInputColor:[CIColor colorWithRed:CIColorMonochrome_R green:CIColorMonochrome_G blue:CIColorMonochrome_B]];
+	else if ([filterName isEqualToString:@"CIFalseColor"]) {
+		CIColor *color0 = [CIColor colorWithRed:CIFalseColor_R1 green:CIFalseColor_G1 blue:CIFalseColor_B1];
+		CIColor *color1 = [CIColor colorWithRed:CIFalseColor_R2 green:CIFalseColor_G2 blue:CIFalseColor_B2];
+		[(CIFalseColor *)filter setInputColor0:color0];
+		[(CIFalseColor *)filter setInputColor1:color1];
+	}
 }
 
 %hook PLCIFilterUtilities
@@ -486,9 +454,9 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 	PLEffectFilterManager *manager = %orig;
 	if (manager != nil) {
 		#define addCIEffect(arg) _addCIEffect(displayNameFromCIFilterName(arg), arg, manager)
-		NSMutableDictionary *prefDict = [[NSDictionary dictionaryWithContentsOfFile:PREF_PATH] mutableCopy];
+		NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 		if (prefDict != nil) {
-			NSMutableArray *effects = [[prefDict objectForKey:@"EnabledEffects"] mutableCopy];
+			NSArray *effects = [prefDict objectForKey:ENABLED_EFFECT];
 			if (effects == nil)
 				return manager;
 			for (int i=0;i<[effects count];i++) {
@@ -519,7 +487,7 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 					}
 				}
 			}
-			NSMutableArray *disabledEffects = [[prefDict objectForKey:@"DisabledEffects"] mutableCopy];
+			NSArray *disabledEffects = [prefDict objectForKey:DISABLED_EFFECT];
 			BOOL deleteSome = (disabledEffects != nil);
 			if (deleteSome) {
 				for (int i=0;i<[disabledEffects count];i++) {
@@ -563,38 +531,38 @@ static void EPLoader()
 	FillGrid = [[dict objectForKey:@"FillGrid"] boolValue];
 	AutoHideBB = [[dict objectForKey:@"AutoHideBB"] boolValue];
 	#define readFloat(val, defaultVal) \
-		val = [dict objectForKey:[NSString stringWithUTF8String:#val]] ? [[dict objectForKey:[NSString stringWithUTF8String:#val]] floatValue] : defaultVal
-	readFloat(CIColorMonochrome_R, .5);
-	readFloat(CIColorMonochrome_G, .6);
-	readFloat(CIColorMonochrome_B, .7);
-	readFloat(CIFalseColor_R1, .2);
-	readFloat(CIFalseColor_G1, .3);
-	readFloat(CIFalseColor_B1, .5);
-	readFloat(CIFalseColor_R2, .6);
-	readFloat(CIFalseColor_G2, .8);
-	readFloat(CIFalseColor_B2, .9);
-	readFloat(CISepiaTone_inputIntensity, 1);
-	readFloat(CIVibrance_inputAmount, 1);
-	readFloat(CIColorMonochrome_inputIntensity, 1);
-	readFloat(CIColorPosterize_inputLevels, 6);
-	readFloat(CIGloom_inputRadius, 10);
-	readFloat(CIGloom_inputIntensity, 1);
-	readFloat(CIBloom_inputRadius, 10);
-	readFloat(CIBloom_inputIntensity, 1);
-	readFloat(CISharpenLuminance_inputSharpness, .4);
-	readFloat(CIPixellate_inputScale, 8);
-	readFloat(CIGaussianBlur_inputRadius, 10);
-	readFloat(CITwirlDistortion_inputRadius, 200);
-	readFloat(CITwirlDistortion_inputAngle, 3.14);
+		val = [dict objectForKey:[NSString stringWithUTF8String:#val]] ? [[dict objectForKey:[NSString stringWithUTF8String:#val]] floatValue] : defaultVal;
+	readFloat(CIColorMonochrome_R, .5)
+	readFloat(CIColorMonochrome_G, .6)
+	readFloat(CIColorMonochrome_B, .7)
+	readFloat(CIFalseColor_R1, .2)
+	readFloat(CIFalseColor_G1, .3)
+	readFloat(CIFalseColor_B1, .5)
+	readFloat(CIFalseColor_R2, .6)
+	readFloat(CIFalseColor_G2, .8)
+	readFloat(CIFalseColor_B2, .9)
+	readFloat(CISepiaTone_inputIntensity, 1)
+	readFloat(CIVibrance_inputAmount, 1)
+	readFloat(CIColorMonochrome_inputIntensity, 1)
+	readFloat(CIColorPosterize_inputLevels, 6)
+	readFloat(CIGloom_inputRadius, 10)
+	readFloat(CIGloom_inputIntensity, 1)
+	readFloat(CIBloom_inputRadius, 10)
+	readFloat(CIBloom_inputIntensity, 1)
+	readFloat(CISharpenLuminance_inputSharpness, .4)
+	readFloat(CIPixellate_inputScale, 8)
+	readFloat(CIGaussianBlur_inputRadius, 10)
+	readFloat(CITwirlDistortion_inputRadius, 200)
+	readFloat(CITwirlDistortion_inputAngle, 3.14)
 	CITwirlDistortion_inputAngle *= M_PI/180;
-	readFloat(CITriangleKaleidoscope_inputSize, 300);
-	readFloat(CITriangleKaleidoscope_inputDecay, .85);
-	readFloat(CIPinchDistortion_inputRadius, 200);
-	readFloat(CIPinchDistortion_inputScale, .5);
-	readFloat(CILightTunnel_inputRadius, 90);
-	readFloat(CILightTunnel_inputRotation, 0);
+	readFloat(CITriangleKaleidoscope_inputSize, 300)
+	readFloat(CITriangleKaleidoscope_inputDecay, .85)
+	readFloat(CIPinchDistortion_inputRadius, 200)
+	readFloat(CIPinchDistortion_inputScale, .5)
+	readFloat(CILightTunnel_inputRadius, 90)
+	readFloat(CILightTunnel_inputRotation, 0)
 	
-	readFloat(qualityFactor, 1);
+	readFloat(qualityFactor, 1)
 }
 
 static void PreferencesChangedCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)

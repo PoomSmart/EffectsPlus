@@ -6,3 +6,4 @@ Architecture: iphoneos-arm
 Description: more effect filters for iOS 7 Camera and Photos app.
 Author: PoomSmart
 Section: Tweaks
+Icon: file:///Library/PreferenceBundles/EffectsPlusPref.bundle/EffectsPlusPref.png

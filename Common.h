@@ -5,6 +5,8 @@
 #define kFontSize 14
 #define NORMAL_EFFECT_COUNT 8
 #define EXTRA_EFFECT_COUNT 20
+#define ENABLED_EFFECT @"EnabledEffects"
+#define DISABLED_EFFECT @"DisabledEffects"
 
 @interface _UIBackdropView : UIView
 @end
