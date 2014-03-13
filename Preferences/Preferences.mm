@@ -65,9 +65,11 @@
 	[array addObject:@"CISharpenLuminance"]; [array addObject:@"CILinearToSRGBToneCurve"];
 	[array addObject:@"CIPixellate"]; [array addObject:@"CIGaussianBlur"];
 	[array addObject:@"CIFalseColor"]; [array addObject:@"CIWrapMirror"];
+	[array addObject:@"CIColorInvert"]; [array addObject:@"CIHoleDistortion"];
+	[array addObject:@"CICircleSplashDistortion"];
 	
 	[array addObject:@"CIThermal"]; [array addObject:@"CIMirror"];
-	[array addObject:@"CIColorInvert"]; [array addObject:@"CITriangleKaleidoscope"];
+	[array addObject:@"CIXRay"]; [array addObject:@"CITriangleKaleidoscope"];
 	[array addObject:@"CILightTunnel"]; [array addObject:@"CIPinchDistortion"];
 	[array addObject:@"CITwirlDistortion"];	[array addObject:@"CIStretch"];
 	return array;
@@ -237,7 +239,7 @@
 	UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
 	UIColor *stockColor = [UIColor colorWithRed:.8 green:.9 blue:.9 alpha:1];
 	UIColor *pbColor = [UIColor colorWithRed:1 green:.8 blue:.8 alpha:1];
-	NSArray *pbArray = @[@"CIColorInvert", @"CITwirlDistortion", @"CIStretch", @"CIMirror", @"CITriangleKaleidoscope", @"CIPinchDistortion", @"CIThermal", @"CILightTunnel"];
+	NSArray *pbArray = @[@"CIXRay", @"CITwirlDistortion", @"CIStretch", @"CIMirror", @"CITriangleKaleidoscope", @"CIPinchDistortion", @"CIThermal", @"CILightTunnel"];
 	NSBundle *plBundle = [NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/PhotoLibrary.framework"];
 	UIImage *FilterOn = [UIImage imageNamed:@"CAMFilterButtonOn" inBundle:plBundle];
 	UIImage *Filter = [UIImage imageNamed:@"CAMFilterButton" inBundle:plBundle];

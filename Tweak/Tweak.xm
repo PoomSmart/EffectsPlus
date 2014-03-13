@@ -28,6 +28,8 @@ static float CITwirlDistortion_inputRadius, CITwirlDistortion_inputAngle;
 static float CITriangleKaleidoscope_inputSize, CITriangleKaleidoscope_inputDecay;
 static float CIPinchDistortion_inputRadius, CIPinchDistortion_inputScale;
 static float CILightTunnel_inputRadius, CILightTunnel_inputRotation;
+static float CIHoleDistortion_inputRadius;
+static float CICircleSplashDistortion_inputRadius;
 
 static float qualityFactor;
 
@@ -109,6 +111,20 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 %end
 
+%hook CICircleSplashDistortion
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
+
+- (CIImage *)outputImage
+{
+	return ciImageInternalFixIfNecessary(%orig, self);
+}
+
+%end
+
 %hook CIStretch
 
 + (NSDictionary *)customAttributes
@@ -155,18 +171,25 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 %end
 
-%hook CIPinchDistortion
+%hook CIHoleDistortion
 
 + (NSDictionary *)customAttributes
 {
 	return dictionaryByAddingXMPSerializable(%orig);
 }
 
-- (void)setInputCenter:(CIVector *)center
+- (CIImage *)outputImage
 {
-	if (center.X == 150 && center.Y == 150)
-		return;
-	%orig;
+	return ciImageInternalFixIfNecessary(%orig, self);
+}
+
+%end
+
+%hook CIPinchDistortion
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
 }
 
 - (CIImage *)outputImage
@@ -188,13 +211,6 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 	return ciImageInternalFixIfNecessary(%orig, self);
 }
 
-- (void)setInputCenter:(CIVector *)center
-{
-	if (center.X == 150 && center.Y == 150)
-		return;
-	%orig;
-}
-
 %end
 
 %hook CITwirlDistortion
@@ -202,13 +218,6 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 + (NSDictionary *)customAttributes
 {
 	return dictionaryByAddingXMPSerializable(%orig);
-}
-
-- (void)setInputCenter:(CIVector *)center
-{
-	if (center.X == 150 && center.Y == 150)
-		return;
-	%orig;
 }
 
 %end
@@ -402,6 +411,14 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 		[(CITwirlDistortion *)filter setInputRadius:valueCorrection(CITwirlDistortion_inputRadius)];
 		[(CITwirlDistortion *)filter setInputAngle:@(M_PI/2+CITwirlDistortion_inputAngle)];
 		[(CITwirlDistortion *)filter setInputCenter:globalCenter];
+	}
+	else if ([filterName isEqualToString:@"CICircleSplashDistortion"]) {
+		[(CICircleSplashDistortion *)filter setInputRadius:valueCorrection(CICircleSplashDistortion_inputRadius)];
+		[(CICircleSplashDistortion *)filter setInputCenter:globalCenter];
+	}
+	else if ([filterName isEqualToString:@"CIHoleDistortion"]) {
+		[(CIHoleDistortion *)filter setInputRadius:valueCorrection(CIHoleDistortion_inputRadius)];
+		[(CIHoleDistortion *)filter setInputCenter:globalCenter];
 	}
 	else if ([filterName isEqualToString:@"CILightTunnel"]) {
 		[(CILightTunnel *)filter setInputRadius:valueCorrection(CILightTunnel_inputRadius)];
@@ -624,6 +641,8 @@ static void EPLoader()
 	readFloat(CIPinchDistortion_inputScale, .5)
 	readFloat(CILightTunnel_inputRadius, 90)
 	readFloat(CILightTunnel_inputRotation, 0)
+	readFloat(CIHoleDistortion_inputRadius, 150)
+	readFloat(CICircleSplashDistortion_inputRadius, 150)
 	
 	readFloat(qualityFactor, 1)
 }

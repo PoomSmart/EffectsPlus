@@ -4,7 +4,7 @@
 #define PreferencesChangedNotification "com.PS.EffectsPlus.prefs"
 #define kFontSize 14
 #define NORMAL_EFFECT_COUNT 8
-#define EXTRA_EFFECT_COUNT 20
+#define EXTRA_EFFECT_COUNT 23
 #define ENABLED_EFFECT @"EnabledEffects"
 #define DISABLED_EFFECT @"DisabledEffects"
 
@@ -59,6 +59,9 @@
 @interface CIThermal : CIFilter
 @end
 
+@interface CIXRay : CIFilter
+@end
+
 @interface CIPixellate : CIFilter
 @property(retain, nonatomic) CIVector *inputCenter;
 @property(retain, nonatomic) NSNumber *inputScale;
@@ -73,6 +76,11 @@
 @property(retain, nonatomic) CIVector *inputCenter;
 @property(retain, nonatomic) NSNumber *inputRadius;
 @property(retain, nonatomic) NSNumber *inputAngle;
+@end
+
+@interface CIHoleDistortion : CIFilter
+@property(retain, nonatomic) CIVector *inputCenter;
+@property(retain, nonatomic) NSNumber *inputRadius;
 @end
 
 @interface CIPinchDistortion : CIFilter
@@ -100,6 +108,11 @@
 @interface CILightTunnel : CIFilter
 @property(retain, nonatomic) CIVector *inputCenter;
 @property(retain, nonatomic) NSNumber *inputRotation;
+@property(retain, nonatomic) NSNumber *inputRadius;
+@end
+
+@interface CICircleSplashDistortion : CIFilter
+@property(retain, nonatomic) CIVector *inputCenter;
 @property(retain, nonatomic) NSNumber *inputRadius;
 @end
 
@@ -161,7 +174,10 @@ static NSString *displayNameFromCIFilterName(NSString *name)
 	EPReturn(@"Pixel", @"CIPixellate");
 	EPReturn(@"Blur", @"CIGaussianBlur");
 	EPReturn(@"False", @"CIFalseColor");
+	EPReturn(@"Hole", @"CIHoleDistortion");
 	EPReturn(@"Twirl", @"CITwirlDistortion");
+	EPReturn(@"Circle", @"CICircleSplashDistortion");
+	EPReturn(@"X-Ray", @"CIXRay");
 	EPReturn(@"Mirrors", @"CIWrapMirror");
 	EPReturn(@"Stretch", @"CIStretch");
 	EPReturn(@"Mirror", @"CIMirror");
