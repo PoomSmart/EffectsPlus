@@ -6,6 +6,7 @@ include ../theos/makefiles/common.mk
 TWEAK_NAME = EffectsPlus
 EffectsPlus_FILES = Tweak.xm
 EffectsPlus_FRAMEWORKS = CoreGraphics CoreImage QuartzCore UIKit
+##EffectsPlus_PRIVATE_FRAMEWORKS = PhotoBoothEffects
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 

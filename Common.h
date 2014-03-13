@@ -17,6 +17,9 @@
 - (NSDictionary *)_outputProperties;
 @end
 
+@interface PBFilter : CIFilter
+@end
+
 @interface CIColorPosterize : CIFilter
 @property(retain, nonatomic) NSNumber *inputLevels;
 @end
@@ -57,6 +60,7 @@
 @end
 
 @interface CIPixellate : CIFilter
+@property(retain, nonatomic) CIVector *inputCenter;
 @property(retain, nonatomic) NSNumber *inputScale;
 @end
 
