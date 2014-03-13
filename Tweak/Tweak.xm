@@ -79,7 +79,7 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 	return fixedOutputImage;
 }
 
-/*static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inputDict)
+static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inputDict)
 {
 	NSMutableDictionary *mutableInputDict = [inputDict mutableCopy];
 	NSMutableArray *filterCategoriesArray = [(NSArray *)[mutableInputDict objectForKey:@"CIAttributeFilterCategories"] mutableCopy];
@@ -89,7 +89,7 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 		[filterCategoriesArray addObject:@"CICategoryXMPSerializable"];
 	[mutableInputDict setObject:filterCategoriesArray forKey:@"CIAttributeFilterCategories"];
 	return (NSDictionary *)mutableInputDict;
-}*/
+}
 
 %hook CIGaussianBlur
 
@@ -100,7 +100,21 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 %end
 
+%hook CIMirror
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
+
+%end
+
 %hook CIStretch
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
 
 - (CIImage *)outputImage
 {
@@ -109,7 +123,30 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 %end
 
+%hook CIThermal
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
+
+%end
+
+%hook CIColorInvert
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
+
+%end
+
 %hook CITriangleKaleidoscope
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
 
 - (CIImage *)outputImage
 {
@@ -119,6 +156,11 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 %end
 
 %hook CIPinchDistortion
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
 
 - (void)setInputCenter:(CIVector *)center
 {
@@ -136,6 +178,11 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 %hook CILightTunnel
 
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
+
 - (CIImage *)outputImage
 {
 	return ciImageInternalFixIfNecessary(%orig, self);
@@ -151,6 +198,11 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 %end
 
 %hook CITwirlDistortion
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
 
 - (void)setInputCenter:(CIVector *)center
 {
@@ -176,6 +228,11 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 %end
 
 %hook CIColorPosterize
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
 
 - (void)setInputLevels:(NSNumber *)levels
 {
@@ -573,7 +630,7 @@ static void EPLoader()
 
 static void PreferencesChangedCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
 {
-	system("killall Camera MobileSlideshow");
+	system("killall Camera MobileSlideShow");
 	EPLoader();
 }
 
