@@ -111,6 +111,15 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 %end
 
+%hook CIXRay
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingXMPSerializable(%orig);
+}
+
+%end
+
 %hook CICircleSplashDistortion
 
 + (NSDictionary *)customAttributes
