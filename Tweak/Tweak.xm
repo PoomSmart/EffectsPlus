@@ -1,7 +1,6 @@
 #import "../Common.h"
 #import <CoreImage/CIFilter.h>
 #import <ImageIO/ImageIO.h>
-#import <CoreMedia/CoreMedia.h>
 
 static BOOL TweakEnabled;
 static BOOL FillGrid;
@@ -482,7 +481,7 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	
 	// Multiple filters is possible! I will add this feature soon ;)
 	/*multiple ? @[filter1, anotherFilter] : */
-	CIImage *outputImage = %orig(@[filter1], image, orientation, copyFirst);
+	CIImage *outputImage = %orig(filters, image, orientation, copyFirst);
 	internalBlurHook = NO;
 	globalFilterHook = NO;
 	return outputImage;
