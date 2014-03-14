@@ -5,7 +5,6 @@
 static BOOL TweakEnabled;
 static BOOL FillGrid;
 static BOOL AutoHideBB;
-static BOOL CropBlur;
 
 static NSString *identifierFix;
 static BOOL internalBlurHook = NO;
@@ -45,7 +44,15 @@ static float qualityFactor;
 // The identifier of the unofficial filters are injected in this method
 + (id)_pl_propertyArrayFromFilters:(NSArray *)filterArray inputImageExtent:(id)arg2
 {
-	identifierFix = NSStringFromClass([[filterArray objectAtIndex:0] class]);
+	CIFilter *filter1;
+	for (CIFilter *filter in filterArray) {
+		NSString *filterName = filter.name;
+		if (![filterName isEqualToString:@"CICrop"] && ![filterName isEqualToString:@"CIRedEyeCorrections"] && ![filterName isEqualToString:@"CIAffineTransform"]) {
+			filter1 = filter;
+			break;
+		}
+	}
+	identifierFix = NSStringFromClass([filter1 class]);
 	return %orig;
 }
 
@@ -73,14 +80,11 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 	if (!globalFilterHook)
 		return outputImage;
 	CGRect rect = itsFilter.inputImage.extent;
-	CIContext *context = [CIContext contextWithOptions:nil];
-	CGImageRef cgImage = [context createCGImage:outputImage fromRect:rect];
-	CIImage *fixedOutputImage = [CIImage imageWithCGImage:cgImage];
-	CGImageRelease(cgImage);
-	return fixedOutputImage;
+	CIImage *fixedImage = [outputImage imageByCroppingToRect:rect];
+	return fixedImage;
 }
 
-static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inputDict)
+static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inputDict)
 {
 	NSMutableDictionary *mutableInputDict = [inputDict mutableCopy];
 	NSMutableArray *filterCategoriesArray = [(NSArray *)[mutableInputDict objectForKey:@"CIAttributeFilterCategories"] mutableCopy];
@@ -96,7 +100,21 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 - (CIImage *)outputImage
 {
-	return !CropBlur ? ciImageInternalFixIfNecessary(%orig, self) : %orig;
+	return ciImageInternalFixIfNecessary(%orig, self);
+}
+
+%end
+
+%hook CIPixellate
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingSomeNativeValues(%orig);
+}
+
+- (CIImage *)outputImage
+{
+	return ciImageInternalFixIfNecessary(%orig, self);
 }
 
 %end
@@ -105,7 +123,12 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
+}
+
+- (CIImage *)outputImage
+{
+	return ciImageInternalFixIfNecessary(%orig, self);
 }
 
 %end
@@ -114,7 +137,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 %end
@@ -123,7 +146,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 - (CIImage *)outputImage
@@ -137,7 +160,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 - (CIImage *)outputImage
@@ -151,7 +174,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 %end
@@ -160,7 +183,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 %end
@@ -169,7 +192,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 - (CIImage *)outputImage
@@ -183,7 +206,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 - (CIImage *)outputImage
@@ -193,11 +216,20 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 %end
 
+%hook CIWrapMirror
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingSomeNativeValues(%orig);
+}
+
+%end
+
 %hook CIPinchDistortion
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 - (CIImage *)outputImage
@@ -211,7 +243,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 - (CIImage *)outputImage
@@ -225,7 +257,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 %end
@@ -248,7 +280,7 @@ static inline NSDictionary *dictionaryByAddingXMPSerializable(NSDictionary *inpu
 
 + (NSDictionary *)customAttributes
 {
-	return dictionaryByAddingXMPSerializable(%orig);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
 
 - (void)setInputLevels:(NSNumber *)levels
@@ -450,13 +482,37 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 
 %hook PLImageAdjustmentView
 
-// Workaround for preventing the mismatch of image size checking, it causes crashing if the old image size is not equal to the edited image size
+// The replaced implementation without image size check, to prevent crashing exception
 - (void)replaceEditedImage:(UIImage *)image
 {
+	[MSHookIvar<UIImage *>(self, "_editedImage") release];
+	MSHookIvar<UIImage *>(self, "_editedImage") = [image retain];
+	[MSHookIvar<UIImageView *>(self, "_imageView") setImage:MSHookIvar<UIImage *>(self, "_editedImage")];
 	[self setEditedImage:image];
 }
 
 %end
+
+/*%hook PLEditPhotoController
+
+%new
+- (void)EPSavePhoto
+{
+	[self _saveAdjustmentsToCopy];
+}
+
+- (void)_updateToolbarSetHiddenState:(int)arg1
+{
+	%orig;
+	UIBarButtonItem *old = ((UINavigationItem *)[self navigationItem]).rightBarButtonItem;
+	if ([old.title isEqualToString:@"EP+"])
+		return;
+	UIBarButtonItem *save = [[UIBarButtonItem alloc] initWithTitle:@"EP+" style:UIBarButtonItemStylePlain target:self action:@selector(EPSavePhoto)];
+	[((UINavigationItem *)[self navigationItem]) setRightBarButtonItems:@[old, save] animated:YES];
+	[save release];
+}
+
+%end*/
 
 %hook PLCIFilterUtilities
 
@@ -469,7 +525,17 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	internalBlurHook = YES;
 	globalFilterHook = YES;
 	CGRect extent = [image extent];
-	CIFilter *filter1 = (CIFilter *)[filters objectAtIndex:0];
+	CIFilter *filter1;
+	if ([filters count] > 1) {
+		for (CIFilter *filter in filters) {
+			NSString *filterName = filter.name;
+			if (![filterName isEqualToString:@"CICrop"] && ![filterName isEqualToString:@"CIRedEyeCorrections"] && ![filterName isEqualToString:@"CIAffineTransform"]) {
+				filter1 = filter;
+				break;
+			}
+		}
+	} else
+		filter1 = (CIFilter *)[filters objectAtIndex:0];
 	/*CIFilter *anotherFilter = nil;
 	NSString *filter2 = filter1.anotherFilter;*/
 	//BOOL multiple = (filter2 != nil);
@@ -481,7 +547,19 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	
 	// Multiple filters is possible! I will add this feature soon ;)
 	/*multiple ? @[filter1, anotherFilter] : */
-	CIImage *outputImage = %orig(filters, image, orientation, copyFirst);
+	NSMutableArray *mutableFiltersArray = [filters mutableCopy];
+	if ([filters count] > 1) {
+		for (int i=0; i<[filters count]; i++) {
+			NSString *filterName = ((CIFilter *)[mutableFiltersArray objectAtIndex:i]).name;
+			if (![filterName isEqualToString:@"CICrop"] && ![filterName isEqualToString:@"CIRedEyeCorrections"] && ![filterName isEqualToString:@"CIAffineTransform"]) {
+				if (i != 0) {
+					[mutableFiltersArray insertObject:[mutableFiltersArray objectAtIndex:i] atIndex:0];
+					[mutableFiltersArray removeObjectAtIndex:i+1];
+				}
+			}
+		}
+	}
+	CIImage *outputImage = %orig((NSArray *)mutableFiltersArray, image, orientation, copyFirst);
 	internalBlurHook = NO;
 	globalFilterHook = NO;
 	return outputImage;
@@ -617,7 +695,6 @@ static void EPLoader()
 	TweakEnabled = [[dict objectForKey:@"Enabled"] boolValue];
 	FillGrid = [[dict objectForKey:@"FillGrid"] boolValue];
 	AutoHideBB = [[dict objectForKey:@"AutoHideBB"] boolValue];
-	CropBlur = [[dict objectForKey:@"CropBlur"] boolValue];
 	#define readFloat(val, defaultVal) \
 		val = [dict objectForKey:[NSString stringWithUTF8String:#val]] ? [[dict objectForKey:[NSString stringWithUTF8String:#val]] floatValue] : defaultVal;
 	readFloat(CIColorMonochrome_R, .5)

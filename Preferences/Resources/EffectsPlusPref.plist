@@ -134,28 +134,6 @@
         	<string>com.PS.EffectsPlus.prefs</string>
       </dict>
       <dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Crop Blur</string>
-			<key>footerText</key>
-			<string>Normally, filters named Bloom, Gloom and Blur crop the output image, you will get the smaller preview. The tweak can fix this issue, but the fix causes the lag much. So if you don't care the image cropping, you should enabled this option.</string>
-		</dict>
-		<dict>
-        	<key>cell</key>
-        	<string>PSSwitchCell</string>
-       		<key>default</key>
-        	<false/>
-        	<key>defaults</key>
-        	<string>com.PS.EffectsPlus</string>
-        	<key>key</key>
-        	<string>CropBlur</string>
-        	<key>label</key>
-        	<string>Enabled</string>
-        	<key>PostNotification</key>
-        	<string>com.PS.EffectsPlus.prefs</string>
-      </dict>
-      <dict>
       		<key>cell</key>
       		<string>PSGroupCell</string>
       </dict>
@@ -173,8 +151,8 @@
         <key>footerText</key>
         <string>Developer's notes
 • Multiple filters at once is possible, but not implemented yet. I'm working on this.
-• Bloom and Gloom filter consume most memory because they both blurs and glows. Enabling both filters at the same time can causes much lag.
 • There are no way to reposition the non-filter view in filters list (in the middle with tweak disabled) in camera app yet.
+• The exported images may not have filter applied for some services, such as iPhoto. But some common services eg. Facebook, Instagram or Twitter does work.
    
 © 2013 - 2014 Thuchapol Unprasert
 (@PoomSmart)</string>

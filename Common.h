@@ -94,6 +94,9 @@
 @property(retain, nonatomic) CIVector *inputPoint;
 @end
 
+@interface CIWrapMirror : CIFilter
+@end
+
 @interface CISharpenLuminance : CIFilter
 @property(retain, nonatomic) NSNumber *inputSharpness;
 @end
@@ -136,6 +139,7 @@
 @end
 
 @interface PLImageAdjustmentView
+@property(retain) UIImage *editedImage;
 - (void)setEditedImage:(UIImage *)image;
 @end
 
