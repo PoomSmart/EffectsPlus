@@ -6,7 +6,6 @@ static BOOL TweakEnabled;
 static BOOL FillGrid;
 static BOOL AutoHideBB;
 
-static NSString *identifierFix;
 static BOOL internalBlurHook = NO;
 static BOOL globalFilterHook = NO;
 
@@ -32,31 +31,6 @@ static float CICircleSplashDistortion_inputRadius;
 static float qualityFactor;
 
 //NSString * const anotherFilter = nil;
-
-%hook CIFilter
-
-// This method returns filters identifier
-- (NSString *)_serializedXMPString
-{
-	return identifierFix != nil ? identifierFix : %orig;
-}
-
-// The identifier of the unofficial filters are injected in this method
-+ (id)_pl_propertyArrayFromFilters:(NSArray *)filterArray inputImageExtent:(id)arg2
-{
-	CIFilter *filter1;
-	for (CIFilter *filter in filterArray) {
-		NSString *filterName = filter.name;
-		if (![filterName isEqualToString:@"CICrop"] && ![filterName isEqualToString:@"CIRedEyeCorrections"] && ![filterName isEqualToString:@"CIAffineTransform"]) {
-			filter1 = filter;
-			break;
-		}
-	}
-	identifierFix = NSStringFromClass([filter1 class]);
-	return %orig;
-}
-
-%end
 
 %hook CIImage
 
@@ -95,6 +69,17 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 	[mutableInputDict setObject:filterCategoriesArray forKey:@"CIAttributeFilterCategories"];
 	return (NSDictionary *)mutableInputDict;
 }
+
+%hook CIFilter
+
+// Some filters that cannot be serialized will be replaced their fake serialized XMP string with their name instead
+- (NSString *)_serializedXMPString
+{
+	NSString *name = %orig;
+	return name == nil ? [self name] : name;
+}
+
+%end
 
 %hook CIGaussianBlur
 
@@ -308,6 +293,24 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 
 %end
 
+%hook CIBloom
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingSomeNativeValues(%orig);
+}
+
+%end
+
+%hook CIGloom
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingSomeNativeValues(%orig);
+}
+
+%end
+
 /*%new
 - (void)setAnotherFilter:(NSString *)filter
 {
@@ -320,29 +323,6 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 	return objc_getAssociatedObject(self, anotherFilter);
 }
 */
-
-/*%hook CIThermal
-%end
-%hook CIBloom
-%end
-%hook CIGloom
-%end
-%hook CIPhotoEffectMono
-%end
-%hook CIPhotoEffectNoir
-%end
-%hook CIPhotoEffectProcess
-%end
-%hook CIPhotoEffectTonal
-%end
-%hook CIPhotoEffectFade
-%end
-%hook CIPhotoEffectChrome
-%end
-%hook CIPhotoEffectTransfer
-%end
-%hook CIPhotoEffectInstant
-%end*/
 
 %hook PLCameraView
 
@@ -481,14 +461,14 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 }
 
 %hook PLImageAdjustmentView
-
+//_editedImageFullSize
 // The replaced implementation without image size check, to prevent crashing exception
 - (void)replaceEditedImage:(UIImage *)image
 {
 	[MSHookIvar<UIImage *>(self, "_editedImage") release];
 	MSHookIvar<UIImage *>(self, "_editedImage") = [image retain];
-	[MSHookIvar<UIImageView *>(self, "_imageView") setImage:MSHookIvar<UIImage *>(self, "_editedImage")];
-	[self setEditedImage:image];
+	[MSHookIvar<UIImageView *>(self, "_imageView") setImage:[MSHookIvar<UIImage *>(self, "_editedImage") retain]];
+	[self setEditedImage:[MSHookIvar<UIImage *>(self, "_editedImage") retain]];
 }
 
 %end
@@ -528,8 +508,7 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	CIFilter *filter1;
 	if ([filters count] > 1) {
 		for (CIFilter *filter in filters) {
-			NSString *filterName = filter.name;
-			if (![filterName isEqualToString:@"CICrop"] && ![filterName isEqualToString:@"CIRedEyeCorrections"] && ![filterName isEqualToString:@"CIAffineTransform"]) {
+			if (![filter respondsToSelector:@selector(_outputProperties)]) {
 				filter1 = filter;
 				break;
 			}
@@ -618,6 +597,8 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 {
 	PLEffectFilterManager *manager = %orig;
 	if (manager != nil) {
+		if ([manager filterCount] > NORMAL_EFFECT_COUNT + 1)
+			return manager;
 		#define addCIEffect(arg) _addCIEffect(displayNameFromCIFilterName(arg), arg, manager)
 		NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 		if (prefDict != nil) {
