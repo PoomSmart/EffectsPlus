@@ -150,6 +150,27 @@
 @property(readonly, assign, nonatomic) CAMBottomBar* _bottomBar;
 @end
 
+@interface PLManagedAsset
+- (NSString *)pathForImageFile;
+@end
+
+@interface PLEditPhotoController : UIViewController <UIActionSheetDelegate>
+- (UINavigationItem *)navigationItem;
+- (NSArray *)_currentNonGeometryFiltersWithEffectFilters:(NSArray *)filters;
+- (void)_presentSavingHUD;
+- (void)_dismissSavingHUD;
+- (void)save:(UIBarButtonItem *)item;
+- (void)cancel:(UIBarButtonItem *)item;
+@end
+
+@interface PLEditPhotoController (Addition)
+- (void)EPSavePhoto;
+@end
+
+@interface PLCIFilterUtilties : NSObject
++ (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)inputImage orientation:(UIImageOrientation)orientation copyFiltersFirst:(BOOL)copyFirst;
+@end
+
 @interface UIImage (Addition)
 + (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle;
 @end

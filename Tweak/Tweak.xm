@@ -1,6 +1,7 @@
 #import "../Common.h"
 #import <CoreImage/CIFilter.h>
 #import <ImageIO/ImageIO.h>
+#import <AssetsLibrary/ALAssetsLibrary.h>
 
 static BOOL TweakEnabled;
 static BOOL FillGrid;
@@ -81,7 +82,26 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 
 %end
 
+%hook CISharpenLuminance
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingSomeNativeValues(%orig);
+}
+
+- (void)setInputSharpness:(NSNumber *)sharpness
+{
+	%orig(@(CISharpenLuminance_inputSharpness));
+}
+
+%end
+
 %hook CIGaussianBlur
+
++ (NSDictionary *)customAttributes
+{
+	return dictionaryByAddingSomeNativeValues(%orig);
+}
 
 - (CIImage *)outputImage
 {
@@ -461,44 +481,91 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 }
 
 %hook PLImageAdjustmentView
-//_editedImageFullSize
+
 // The replaced implementation without image size check, to prevent crashing exception
 - (void)replaceEditedImage:(UIImage *)image
 {
-	[MSHookIvar<UIImage *>(self, "_editedImage") release];
-	MSHookIvar<UIImage *>(self, "_editedImage") = [image retain];
+	if (MSHookIvar<UIImage *>(self, "_editedImage") != nil) {
+		[MSHookIvar<UIImage *>(self, "_editedImage") release];
+		MSHookIvar<UIImage *>(self, "_editedImage") = [image retain];
+		[self setEditedImage:MSHookIvar<UIImage *>(self, "_editedImage")];
+	}
 	[MSHookIvar<UIImageView *>(self, "_imageView") setImage:[MSHookIvar<UIImage *>(self, "_editedImage") retain]];
-	[self setEditedImage:[MSHookIvar<UIImage *>(self, "_editedImage") retain]];
 }
 
 %end
 
-/*%hook PLEditPhotoController
+%hook PLEditPhotoController
+
+%new
+- (void)ep_showOptions
+{
+	UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"Select saving options" delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:nil otherButtonTitles:@"Default", @"As a new image", nil];
+	sheet.tag = 9598;
+	[sheet showInView:self.view];
+	[sheet release];
+}
+
+- (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex
+{
+	if (popup.tag == 9598) {
+		switch (buttonIndex) {
+			case 0:
+				[self save:[[self navigationItem] rightBarButtonItem]];
+				break;
+			case 1:
+				[self EPSavePhoto];
+				break;
+		}
+	} else
+		%orig;
+}
 
 %new
 - (void)EPSavePhoto
 {
-	[self _saveAdjustmentsToCopy];
+	[self _presentSavingHUD];
+	UIImage *imageInAlbum = MSHookIvar<UIImage *>(self,"_adjustedImage");
+	PLManagedAsset *asset = MSHookIvar<PLManagedAsset *>(self, "_editedPhoto");
+	NSString *actualImagePath = [asset pathForImageFile];
+	UIImage *actualImage = [UIImage imageWithContentsOfFile:actualImagePath];
+	NSArray *effectFilters = MSHookIvar<NSArray *>(self, "_effectFilters");
+	NSArray *trueFilters = [self _currentNonGeometryFiltersWithEffectFilters:effectFilters];
+	CIImage *ciImage = [CIImage imageWithData:UIImagePNGRepresentation(actualImage)];
+	CIImage *ciImageWithFilters = [%c(PLCIFilterUtilities) outputImageFromFilters:trueFilters inputImage:ciImage orientation:imageInAlbum.imageOrientation copyFiltersFirst:NO];
+	CGImageRef cgImage = [MSHookIvar<CIContext *>(self, "_ciContextFullSize") createCGImage:ciImageWithFilters fromRect:[ciImageWithFilters extent]];
+    //if (type == 1) {
+		ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
+		[library writeImageToSavedPhotosAlbum:cgImage metadata:nil completionBlock:^(NSURL *assetURL, NSError *error) {
+			CGImageRelease(cgImage);
+			[self _dismissSavingHUD];
+			[self cancel:[[self navigationItem] leftBarButtonItem]];
+		}];
+		[library release];
+	/*} else if (type == 0) {
+		UIImage *image = [[UIImage alloc] initWithCGImage:cgImage];
+		[UIImagePNGRepresentation(image) writeToFile:actualImagePath atomically:YES];
+		[image release];
+		CGImageRelease(cgImage);
+	}*/
+	
 }
 
-- (void)_updateToolbarSetHiddenState:(int)arg1
+- (UIBarButtonItem *)_rightButtonForMode:(int)mode enableDone:(BOOL)done enableSave:(BOOL)save
 {
-	%orig;
-	UIBarButtonItem *old = ((UINavigationItem *)[self navigationItem]).rightBarButtonItem;
-	if ([old.title isEqualToString:@"EP+"])
-		return;
-	UIBarButtonItem *save = [[UIBarButtonItem alloc] initWithTitle:@"EP+" style:UIBarButtonItemStylePlain target:self action:@selector(EPSavePhoto)];
-	[((UINavigationItem *)[self navigationItem]) setRightBarButtonItems:@[old, save] animated:YES];
-	[save release];
+	UIBarButtonItem *item = %orig;
+	if (mode == 0 && !done && save)
+		[item setAction:@selector(ep_showOptions)];
+	return item;
 }
 
-%end*/
+%end
 
 %hook PLCIFilterUtilities
 
 // This method is very important for rendering filters (Yes, more than 1 filter is permitted) onto the image, is used by Camera and Photos app
 // These CIFilter written here need some modification in order to make them work correctly
-+ (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)image orientation:(int)orientation copyFiltersFirst:(BOOL)copyFirst
++ (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)image orientation:(UIImageOrientation)orientation copyFiltersFirst:(BOOL)copyFirst
 {
 	if ([filters count] == 0)
 		return %orig; // FIXME: This causes crashing if there are no filters in the array
