@@ -71,6 +71,22 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 	return (NSDictionary *)mutableInputDict;
 }
 
+%hook PLEffectSelectionViewController
+
+// Workaround for fixing the unwanted selected filter reset, maybe this is a better API?
+- (void)setSelectedEffect:(CIFilter *)filter
+{
+	NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
+	for (NSInteger i=0; i<[filters count]; i++) {
+		if ([((CIFilter *)[filters objectAtIndex:i]).name isEqualToString:filter.name]) {
+			[self _setSelectedIndexPath:[NSIndexPath indexPathForItem:i inSection:1]];
+			break;
+		}
+	}
+}
+
+%end
+
 %hook CIFilter
 
 // Some filters that cannot be serialized will be replaced their fake serialized XMP string with their name instead
@@ -91,7 +107,7 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 
 - (void)setInputSharpness:(NSNumber *)sharpness
 {
-	%orig(@(CISharpenLuminance_inputSharpness));
+	%orig(globalFilterHook ? @(CISharpenLuminance_inputSharpness) : sharpness);
 }
 
 %end
@@ -572,20 +588,14 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	internalBlurHook = YES;
 	globalFilterHook = YES;
 	CGRect extent = [image extent];
-	CIFilter *filter1;
-	if ([filters count] > 1) {
-		for (CIFilter *filter in filters) {
-			if (![filter respondsToSelector:@selector(_outputProperties)]) {
-				filter1 = filter;
-				break;
-			}
-		}
-	} else
-		filter1 = (CIFilter *)[filters objectAtIndex:0];
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	for (CIFilter *filter in filters) {
+		if (![filter respondsToSelector:@selector(_outputProperties)])
+			effectCorrection(filter, extent, orientation);
+	}
 	/*CIFilter *anotherFilter = nil;
 	NSString *filter2 = filter1.anotherFilter;*/
 	//BOOL multiple = (filter2 != nil);
-	effectCorrection(filter1, extent, orientation);
 	/*if (multiple) {
 		anotherFilter = [CIFilter filterWithName:filter2];
 		effectCorrection(anotherFilter, extent, orientation);
@@ -596,8 +606,8 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	NSMutableArray *mutableFiltersArray = [filters mutableCopy];
 	if ([filters count] > 1) {
 		for (int i=0; i<[filters count]; i++) {
-			NSString *filterName = ((CIFilter *)[mutableFiltersArray objectAtIndex:i]).name;
-			if (![filterName isEqualToString:@"CICrop"] && ![filterName isEqualToString:@"CIRedEyeCorrections"] && ![filterName isEqualToString:@"CIAffineTransform"]) {
+			CIFilter *filter = (CIFilter *)[mutableFiltersArray objectAtIndex:i];
+			if (![filter respondsToSelector:@selector(_outputProperties)]) {
 				if (i != 0) {
 					[mutableFiltersArray insertObject:[mutableFiltersArray objectAtIndex:i] atIndex:0];
 					[mutableFiltersArray removeObjectAtIndex:i+1];
@@ -605,7 +615,8 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 			}
 		}
 	}
-	CIImage *outputImage = %orig((NSArray *)mutableFiltersArray, image, orientation, copyFirst);
+	[pool drain];
+	CIImage *outputImage = %orig(mutableFiltersArray, image, orientation, copyFirst);
 	internalBlurHook = NO;
 	globalFilterHook = NO;
 	return outputImage;
@@ -667,6 +678,7 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 		if ([manager filterCount] > NORMAL_EFFECT_COUNT + 1)
 			return manager;
 		#define addCIEffect(arg) _addCIEffect(displayNameFromCIFilterName(arg), arg, manager)
+		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 		NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 		if (prefDict != nil) {
 			NSArray *effects = [prefDict objectForKey:ENABLED_EFFECT];
@@ -729,7 +741,7 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 				[a3 addObject:[[array objectAtIndex:i] objectForKey:@"aggdName"]];
 			}
 			[MSHookIvar<NSMutableArray *>(self, "_aggdNames") setArray:a3];
-			
+			[pool drain];
 		}
 	}
 	return manager;
