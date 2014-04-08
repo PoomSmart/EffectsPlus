@@ -134,6 +134,10 @@
 - (void)dealloc;
 @end
 
+@interface PLEffectSelectionViewController
+- (void)_setSelectedIndexPath:(NSIndexPath *)indexPath;
+@end
+
 @interface PLEffectsGridView
 - (unsigned)_cellCount;
 @end
