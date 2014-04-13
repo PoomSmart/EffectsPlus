@@ -516,7 +516,7 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 %new
 - (void)ep_showOptions
 {
-	UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"Select saving options" delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:nil otherButtonTitles:@"Default", @"As a new image", nil];
+	UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"Select saving options" delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:nil otherButtonTitles:@"Default", @"As a new image", @"Keep adjustments (N)", nil];
 	sheet.tag = 9598;
 	[sheet showInView:self.view];
 	[sheet release];
@@ -530,7 +530,14 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 				[self save:[[self navigationItem] rightBarButtonItem]];
 				break;
 			case 1:
-				[self EPSavePhoto];
+				[self _presentSavingHUD];
+				[self performSelector:@selector(EPSavePhoto) withObject:nil afterDelay:.02];
+				break;
+			case 2:
+				// Dirt way lol
+				[self _presentSavingHUD];
+				[self performSelector:@selector(_saveAdjustmentsToCopy) withObject:nil afterDelay:.02];
+				[self performSelector:@selector(_dismissSavingHUD) withObject:nil afterDelay:.1];
 				break;
 		}
 	} else
@@ -540,30 +547,42 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 %new
 - (void)EPSavePhoto
 {
-	[self _presentSavingHUD];
-	UIImage *imageInAlbum = MSHookIvar<UIImage *>(self,"_adjustedImage");
 	PLManagedAsset *asset = MSHookIvar<PLManagedAsset *>(self, "_editedPhoto");
 	NSString *actualImagePath = [asset pathForImageFile];
 	UIImage *actualImage = [UIImage imageWithContentsOfFile:actualImagePath];
-	NSArray *effectFilters = MSHookIvar<NSArray *>(self, "_effectFilters");
-	NSArray *trueFilters = [self _currentNonGeometryFiltersWithEffectFilters:effectFilters];
+	NSArray *effectFilters = [self _currentNonGeometryFiltersWithEffectFilters:MSHookIvar<NSArray *>(self, "_effectFilters")];
 	CIImage *ciImage = [CIImage imageWithData:UIImagePNGRepresentation(actualImage)];
-	CIImage *ciImageWithFilters = [%c(PLCIFilterUtilities) outputImageFromFilters:trueFilters inputImage:ciImage orientation:imageInAlbum.imageOrientation copyFiltersFirst:NO];
+	int orientation = 1;
+	float rotation = MSHookIvar<float>(self, "_rotationAngle");
+	float angle = rotation;
+	if (angle > 6)
+		angle = fmodf(rotation, 6.28319);
+	if (round(abs(angle)) == 3)
+		orientation = 3;
+	else if (round(angle) == 2)
+		orientation = 8;
+	else if (round(angle) == 5 || (round(angle) == -2 && angle < 0))
+		orientation = 6;
+	CIImage *ciImageWithFilters = [%c(PLCIFilterUtilities) outputImageFromFilters:effectFilters inputImage:ciImage orientation:orientation copyFiltersFirst:NO];
+	struct CGRect cropRect = [self normalizedCropRect];
+	if (!CGRectIsEmpty(cropRect)) {
+		CGSize imageSize = ciImage.extent.size;
+		CGRect trueCropRect = CGRectMake(cropRect.origin.x*imageSize.width, cropRect.origin.y*imageSize.height, cropRect.size.width*imageSize.width, cropRect.size.height*imageSize.height);
+		ciImageWithFilters = [ciImageWithFilters imageByCroppingToRect:trueCropRect];
+	}
 	CGImageRef cgImage = [MSHookIvar<CIContext *>(self, "_ciContextFullSize") createCGImage:ciImageWithFilters fromRect:[ciImageWithFilters extent]];
-    //if (type == 1) {
-		ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
-		[library writeImageToSavedPhotosAlbum:cgImage metadata:nil completionBlock:^(NSURL *assetURL, NSError *error) {
-			CGImageRelease(cgImage);
-			[self _dismissSavingHUD];
-			[self cancel:[[self navigationItem] leftBarButtonItem]];
-		}];
-		[library release];
-	/*} else if (type == 0) {
-		UIImage *image = [[UIImage alloc] initWithCGImage:cgImage];
-		[UIImagePNGRepresentation(image) writeToFile:actualImagePath atomically:YES];
-		[image release];
+	ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
+	[library writeImageToSavedPhotosAlbum:cgImage metadata:nil completionBlock:^(NSURL *assetURL, NSError *error) {
 		CGImageRelease(cgImage);
-	}*/
+		[self _dismissSavingHUD];
+		[self cancel:[[self navigationItem] leftBarButtonItem]];
+	}];
+	[library release];
+	/*UIImage *image = [[UIImage alloc] initWithCGImage:cgImage];
+	[UIImagePNGRepresentation(image) writeToFile:actualImagePath atomically:YES];
+	[image release];
+	CGImageRelease(cgImage);
+	*/
 	
 }
 
@@ -588,7 +607,6 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	internalBlurHook = YES;
 	globalFilterHook = YES;
 	CGRect extent = [image extent];
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	for (CIFilter *filter in filters) {
 		if (![filter respondsToSelector:@selector(_outputProperties)])
 			effectCorrection(filter, extent, orientation);
@@ -606,8 +624,7 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	NSMutableArray *mutableFiltersArray = [filters mutableCopy];
 	if ([filters count] > 1) {
 		for (int i=0; i<[filters count]; i++) {
-			CIFilter *filter = (CIFilter *)[mutableFiltersArray objectAtIndex:i];
-			if (![filter respondsToSelector:@selector(_outputProperties)]) {
+			if (![(CIFilter *)[mutableFiltersArray objectAtIndex:i] respondsToSelector:@selector(_outputProperties)]) {
 				if (i != 0) {
 					[mutableFiltersArray insertObject:[mutableFiltersArray objectAtIndex:i] atIndex:0];
 					[mutableFiltersArray removeObjectAtIndex:i+1];
@@ -615,7 +632,6 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 			}
 		}
 	}
-	[pool drain];
 	CIImage *outputImage = %orig(mutableFiltersArray, image, orientation, copyFirst);
 	internalBlurHook = NO;
 	globalFilterHook = NO;
@@ -678,7 +694,6 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 		if ([manager filterCount] > NORMAL_EFFECT_COUNT + 1)
 			return manager;
 		#define addCIEffect(arg) _addCIEffect(displayNameFromCIFilterName(arg), arg, manager)
-		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 		NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 		if (prefDict != nil) {
 			NSArray *effects = [prefDict objectForKey:ENABLED_EFFECT];
@@ -741,7 +756,6 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 				[a3 addObject:[[array objectAtIndex:i] objectForKey:@"aggdName"]];
 			}
 			[MSHookIvar<NSMutableArray *>(self, "_aggdNames") setArray:a3];
-			[pool drain];
 		}
 	}
 	return manager;
