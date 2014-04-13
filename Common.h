@@ -154,11 +154,16 @@
 @property(readonly, assign, nonatomic) CAMBottomBar* _bottomBar;
 @end
 
-@interface PLManagedAsset
-- (NSString *)pathForImageFile;
+@interface _PLManagedAsset : NSObject
+- (int)orientationValue;
+@end
+
+@interface PLManagedAsset : _PLManagedAsset
+@property(readonly, nonatomic) NSString *pathForImageFile;
 @end
 
 @interface PLEditPhotoController : UIViewController <UIActionSheetDelegate>
+@property(readonly) struct CGRect normalizedCropRect;
 - (UINavigationItem *)navigationItem;
 - (NSArray *)_currentNonGeometryFiltersWithEffectFilters:(NSArray *)filters;
 - (void)_presentSavingHUD;

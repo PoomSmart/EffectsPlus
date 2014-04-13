@@ -73,7 +73,7 @@
 		</dict>
 		 <dict>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus</string>
+			<string>com.PS.EffectsPlus.prefs</string>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
@@ -153,7 +153,7 @@
 • Multiple filters at once is possible, but not implemented yet. I'm working on this.
 • There are no way to reposition the non-filter view in filters list (in the middle with tweak disabled) in camera app yet.
 • The exported images may not have filter applied for some services, such as iPhoto. But some common services eg. Facebook, Instagram or Twitter does work.
-• The best way to get images with filters applied is saving to the new image, you can do this directly using Save button at top-right of the photo editor view. ("Default" for default saving, and "As a new image" for the another image)
+• The best way to get images with filters applied is saving to the new image, you can do this directly using Save button at top-right of the photo editor view. ("Default" for default saving, "As a new image" for the another image, and "Keep adjustments (N)" for the another image, but keep some image settings)
    
 © 2013 - 2014 Thuchapol Unprasert
 (@PoomSmart)</string>
