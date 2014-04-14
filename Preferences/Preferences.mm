@@ -14,6 +14,7 @@
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath;
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section;
 - (void)viewDidLoad;
+- (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex;
 @end
 
 @interface UITableViewCell (EffectsPlus)
@@ -28,7 +29,7 @@
 - (UITableView *)tableView;
 @end
 
-@interface EffectsPlusFiltersSelectionController () <UITableViewDelegate, UITableViewDataSource> {
+@interface EffectsPlusFiltersSelectionController () <UITableViewDelegate, UITableViewDataSource, UIActionSheetDelegate> {
 	NSMutableOrderedSet *_enabledEffects;
 	NSMutableOrderedSet *_disabledEffects;
 }
@@ -56,7 +57,17 @@
 	return array;
 }
 
-- (NSMutableArray *)arrayByAddingExtras
+- (NSMutableArray *)arrayByAddingPhotoBooths
+{
+	NSMutableArray *array = [NSMutableArray array];
+	[array addObject:@"CIThermal"]; [array addObject:@"CIMirror"];
+	[array addObject:@"CIXRay"]; [array addObject:@"CITriangleKaleidoscope"];
+	[array addObject:@"CILightTunnel"]; [array addObject:@"CIPinchDistortion"];
+	[array addObject:@"CITwirlDistortion"];	[array addObject:@"CIStretch"];
+	return array;
+}
+
+- (NSMutableArray *)arrayByAddingExternal
 {
 	NSMutableArray *array = [NSMutableArray array];
 	[array addObject:@"CISepiaTone"]; [array addObject:@"CIVibrance"];
@@ -67,49 +78,71 @@
 	[array addObject:@"CIFalseColor"]; [array addObject:@"CIWrapMirror"];
 	[array addObject:@"CIColorInvert"]; [array addObject:@"CIHoleDistortion"];
 	[array addObject:@"CICircleSplashDistortion"];
-	
-	[array addObject:@"CIThermal"]; [array addObject:@"CIMirror"];
-	[array addObject:@"CIXRay"]; [array addObject:@"CITriangleKaleidoscope"];
-	[array addObject:@"CILightTunnel"]; [array addObject:@"CIPinchDistortion"];
-	[array addObject:@"CITwirlDistortion"];	[array addObject:@"CIStretch"];
+	return array;
+}
+
+- (NSMutableArray *)arrayByAddingExtras
+{
+	NSMutableArray *array = [NSMutableArray array];
+	[array addObjectsFromArray:[self arrayByAddingExternal]];
+	[array addObjectsFromArray:[self arrayByAddingPhotoBooths]];
 	return array;
 }
 
 - (void)toggleFiltersArray
 {
-	NSString *title = ((UINavigationItem *)[super navigationItem]).rightBarButtonItem.title;
-	if ([title isEqualToString:@"Reset"]) {
-		_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingDefaults]];
-		_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExtras]];
-	}
-	else if ([title isEqualToString:@"Enable All"]) {
-		[_enabledEffects addObjectsFromArray:_disabledEffects.array];
-		_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:[NSMutableArray array]];
-	}
-	else if ([title isEqualToString:@"Disable All"]) {
-		[_disabledEffects addObjectsFromArray:_enabledEffects.array];
-		_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[NSMutableArray array]];
-	}
-	[self saveSettings];
-	[[NSUserDefaults standardUserDefaults] synchronize];
-	[self.tableView reloadData];
-	[self setToggleTitle];
+	UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:nil delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:nil otherButtonTitles:
+		@"Default",
+		@"Enable All",
+		@"Disable All",
+		@"All Photo Booth Enabled",
+		@"All Extra Enabled",
+		nil];
+	sheet.tag = 9596;
+	[sheet showInView:self.view];
+	[sheet release];	
 }
 
-- (void)setToggleTitle
+- (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex
 {
-	NSString *title = @"Reset";
-	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
-	if (prefDict != nil) {
-		if (_disabledEffects.count == 0)
-			title = @"Disable All";
-		if (_enabledEffects.count == 0)
-			title = @"Enable All";
-	}
-	UIBarButtonItem *toggleBtn = [[UIBarButtonItem alloc]
-        	initWithTitle:title style:UIBarButtonItemStyleBordered
-        	target:self action:@selector(toggleFiltersArray)];
-	((UINavigationItem *)[super navigationItem]).rightBarButtonItem = toggleBtn;
+	if (popup.tag == 9596) {
+		switch (buttonIndex) {
+			case 0:
+				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingDefaults]];
+				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExtras]];
+				break;
+			case 1:
+				[_enabledEffects addObjectsFromArray:_disabledEffects.array];
+				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:[NSMutableArray array]];
+				break;
+			case 2:
+				[_disabledEffects addObjectsFromArray:_enabledEffects.array];
+				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[NSMutableArray array]];
+				break;
+			case 3:
+			{
+				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingPhotoBooths]];
+				NSMutableArray *array3 = [NSMutableArray array];
+				[array3 addObjectsFromArray:[self arrayByAddingDefaults]];
+				[array3 addObjectsFromArray:[self arrayByAddingExternal]];
+				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array3];
+				break;
+			}
+			case 4:
+			{
+				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExternal]];
+				NSMutableArray *array4 = [NSMutableArray array];
+				[array4 addObjectsFromArray:[self arrayByAddingDefaults]];
+				[array4 addObjectsFromArray:[self arrayByAddingPhotoBooths]];
+				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array4];
+				break;
+			}
+		}
+		[self saveSettings];
+		[[NSUserDefaults standardUserDefaults] synchronize];
+		[self.tableView reloadData];
+	} else
+		[super actionSheet:popup clickedButtonAtIndex:buttonIndex];
 }
 
 - (void)viewDidLoad
@@ -190,7 +223,6 @@
     	[_enabledEffects insertObject:o atIndex:toIndexPath.row];
     }
 	[self saveSettings];
-	[self setToggleTitle];
 }
 
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -203,7 +235,7 @@
 	self = [super init];
 	if (self) {
 		UIBarButtonItem *toggleBtn = [[UIBarButtonItem alloc]
-        	initWithTitle:nil style:UIBarButtonItemStyleBordered
+        	initWithTitle:@"Reset" style:UIBarButtonItemStyleBordered
         	target:self action:@selector(toggleFiltersArray)];
 			((UINavigationItem *)[super navigationItem]).rightBarButtonItem = toggleBtn;
 		
@@ -219,7 +251,6 @@
 		[self saveSettings];
 		[[NSUserDefaults standardUserDefaults] synchronize];
 		[self.tableView reloadData];
-		[self setToggleTitle];
 	}
 	return self;
 }
@@ -239,7 +270,7 @@
 	UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
 	UIColor *stockColor = [UIColor colorWithRed:.8 green:.9 blue:.9 alpha:1];
 	UIColor *pbColor = [UIColor colorWithRed:1 green:.8 blue:.8 alpha:1];
-	NSArray *pbArray = @[@"CIXRay", @"CITwirlDistortion", @"CIStretch", @"CIMirror", @"CITriangleKaleidoscope", @"CIPinchDistortion", @"CIThermal", @"CILightTunnel"];
+	NSArray *pbArray = [self arrayByAddingPhotoBooths];
 	NSBundle *plBundle = [NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/PhotoLibrary.framework"];
 	UIImage *FilterOn = [UIImage imageNamed:@"CAMFilterButtonOn" inBundle:plBundle];
 	UIImage *Filter = [UIImage imageNamed:@"CAMFilterButton" inBundle:plBundle];
