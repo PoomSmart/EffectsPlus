@@ -80,9 +80,12 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 	for (NSInteger i=0; i<[filters count]; i++) {
 		if ([((CIFilter *)[filters objectAtIndex:i]).name isEqualToString:filter.name]) {
 			[self _setSelectedIndexPath:[NSIndexPath indexPathForItem:i inSection:1]];
-			break;
+			return;
 		}
 	}
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Effects+" message:@"ERROR: The selected filter isn't existed in the current library. You have to enable this filter in settings first." delegate:self cancelButtonTitle:@"Ok" otherButtonTitles:nil];
+	[alert show];
+	[alert release];
 }
 
 %end
@@ -534,10 +537,7 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 				[self performSelector:@selector(EPSavePhoto) withObject:nil afterDelay:.02];
 				break;
 			case 2:
-				// Dirt way lol
-				[self _presentSavingHUD];
-				[self performSelector:@selector(_saveAdjustmentsToCopy) withObject:nil afterDelay:.02];
-				[self performSelector:@selector(_dismissSavingHUD) withObject:nil afterDelay:.1];
+				[self _saveAdjustmentsToCopy];
 				break;
 		}
 	} else
@@ -642,27 +642,28 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 
 static void configEffect(CIFilter *filter)
 {
-	if ([filter.name isEqualToString:@"CIGloom"])
+	NSString *filterName = filter.name;
+	if ([filterName isEqualToString:@"CIGloom"])
 		[(CIGloom *)filter setInputIntensity:@(CIGloom_inputIntensity)];
-	else if ([filter.name isEqualToString:@"CIBloom"])
+	else if ([filterName isEqualToString:@"CIBloom"])
 		[(CIBloom *)filter setInputIntensity:@(CIBloom_inputIntensity)];
-	else if ([filter.name isEqualToString:@"CITwirlDistortion"])
+	else if ([filterName isEqualToString:@"CITwirlDistortion"])
 		[(CITwirlDistortion *)filter setInputAngle:@(M_PI/2+CITwirlDistortion_inputAngle)];
-	else if ([filter.name isEqualToString:@"CIPinchDistortion"])
+	else if ([filterName isEqualToString:@"CIPinchDistortion"])
 		[(CIPinchDistortion *)filter setInputScale:@(CIPinchDistortion_inputScale)];
-	else if ([filter.name isEqualToString:@"CIVibrance"])
+	else if ([filterName isEqualToString:@"CIVibrance"])
 		[(CIVibrance *)filter setInputAmount:@(CIVibrance_inputAmount)];
-	else if ([filter.name isEqualToString:@"CISepiaTone"])
+	else if ([filterName isEqualToString:@"CISepiaTone"])
 		[(CISepiaTone *)filter setInputIntensity:@(CISepiaTone_inputIntensity)];
-	else if ([filter.name isEqualToString:@"CIColorMonochrome"])
+	else if ([filterName isEqualToString:@"CIColorMonochrome"])
 		[(CIColorMonochrome *)filter setInputColor:[CIColor colorWithRed:CIColorMonochrome_R green:CIColorMonochrome_G blue:CIColorMonochrome_B]];
-	else if ([filter.name isEqualToString:@"CIFalseColor"]) {
+	else if ([filterName isEqualToString:@"CIFalseColor"]) {
 		CIColor *color0 = [CIColor colorWithRed:CIFalseColor_R1 green:CIFalseColor_G1 blue:CIFalseColor_B1];
 		CIColor *color1 = [CIColor colorWithRed:CIFalseColor_R2 green:CIFalseColor_G2 blue:CIFalseColor_B2];
 		[(CIFalseColor *)filter setInputColor0:color0];
 		[(CIFalseColor *)filter setInputColor1:color1];
 	}
-	else if ([filter.name isEqualToString:@"CILightTunnel"])
+	else if ([filterName isEqualToString:@"CILightTunnel"])
 		[(CILightTunnel *)filter setInputRotation:@(CILightTunnel_inputRotation)];
 }
 
@@ -684,6 +685,28 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 	configEffect(filter1);
 	[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter1];
 }
+
+/*%hook PLEffectsGridView
+
+- (NSMutableArray *)filterIndices
+{
+	NSMutableArray *array = %orig;
+	if (array != nil) {
+		NSUInteger count = [array count];
+		for (unsigned int i=0;i<count;i++) {
+			NSNumber *number = [array objectAtIndex:i];
+			if ([number unsignedIntegerValue] + 1 > count && count >= 9) {
+				NSObject *o = [[[array objectAtIndex:i] retain] autorelease];
+				[array removeObjectAtIndex:i];
+				[array insertObject:o atIndex:floor(count)/2];
+				break;
+			}
+		}
+	}
+	return array;
+}
+
+%end*/
 
 %hook PLEffectFilterManager
 
