@@ -134,11 +134,11 @@
 - (void)dealloc;
 @end
 
-@interface PLEffectSelectionViewController
+@interface PLEffectSelectionViewController : UIViewController
 - (void)_setSelectedIndexPath:(NSIndexPath *)indexPath;
 @end
 
-@interface PLEffectsGridView
+@interface PLEffectsGridView : UIView
 - (unsigned)_cellCount;
 @end
 
@@ -150,7 +150,7 @@
 @interface CAMBottomBar : UIToolbar
 @end
 
-@interface PLCameraView
+@interface PLCameraView : UIView
 @property(readonly, assign, nonatomic) CAMBottomBar* _bottomBar;
 @end
 
@@ -170,6 +170,7 @@
 - (void)_dismissSavingHUD;
 - (void)save:(UIBarButtonItem *)item;
 - (void)cancel:(UIBarButtonItem *)item;
+- (void)_saveAdjustmentsToCopy;
 @end
 
 @interface PLEditPhotoController (Addition)

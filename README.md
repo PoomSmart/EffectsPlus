@@ -15,3 +15,7 @@ Done right...
 ![alt tag](https://raw.github.com/PoomSmart/EffectsPlus/master/2.PNG)
 
 ![alt tag](https://raw.github.com/PoomSmart/EffectsPlus/master/3.PNG)
+
+![alt tag](https://raw.github.com/PoomSmart/EffectsPlus/master/4.PNG)
+
+![alt tag](https://raw.github.com/PoomSmart/EffectsPlus/master/5.PNG)
