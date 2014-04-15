@@ -6,6 +6,7 @@
 static BOOL TweakEnabled;
 static BOOL FillGrid;
 static BOOL AutoHideBB;
+static BOOL DisableNoneFilter;
 
 static BOOL internalBlurHook = NO;
 static BOOL globalFilterHook = NO;
@@ -376,10 +377,21 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 
 %hook PLEffectsGridView
 
+- (unsigned)_filterIndexForGridIndex:(unsigned)index
+{
+	return [self isBlackAndWhite] ? index + [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
+
+}
+
+- (unsigned)_gridIndexForFilterIndex:(unsigned)index
+{
+	return [self isBlackAndWhite] ? index - [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
+}
+
 // Set the exact cell count per row of the filters grid to fit all filters there
 - (unsigned)_cellsPerRow
 {
-	unsigned filterCount = 1 + [[%c(PLEffectFilterManager) sharedInstance] filterCount];
+	unsigned filterCount = (DisableNoneFilter ? 0 : 1) + [[%c(PLEffectFilterManager) sharedInstance] filterCount];
 	if (filterCount <= 9)
 		return %orig;
 	if (filterCount <= 16)
@@ -398,7 +410,7 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 		return %orig;
 	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 	NSArray *enabledArray = (NSArray *)[prefDict objectForKey:ENABLED_EFFECT];
-	return enabledArray != nil ? 1 + [enabledArray count] : %orig;
+	return enabledArray != nil ? (DisableNoneFilter ? 0 : 1) + [enabledArray count] : %orig;
 }
 
 - (void)_updatePixelBufferPoolForSize:(CGSize)size
@@ -451,6 +463,8 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	if ([filterName isEqualToString:@"CIMirror"]) {
 		[(CIMirror *)filter setInputPoint:normalHalfExtent];
 		[(CIMirror *)filter setInputAngle:@(1.5*M_PI)];
+		if (![[%c(PLCameraController) sharedInstance] isReady])
+			[(CIMirror *)filter setInputAngle:@(-2*M_PI)];
 	}
 	else if ([filterName isEqualToString:@"CITriangleKaleidoscope"]) {
 		[(CITriangleKaleidoscope *)filter setInputPoint:normalHalfExtent];
@@ -578,12 +592,6 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 		[self cancel:[[self navigationItem] leftBarButtonItem]];
 	}];
 	[library release];
-	/*UIImage *image = [[UIImage alloc] initWithCGImage:cgImage];
-	[UIImagePNGRepresentation(image) writeToFile:actualImagePath atomically:YES];
-	[image release];
-	CGImageRelease(cgImage);
-	*/
-	
 }
 
 - (UIBarButtonItem *)_rightButtonForMode:(int)mode enableDone:(BOOL)done enableSave:(BOOL)save
@@ -714,7 +722,7 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFi
 {
 	PLEffectFilterManager *manager = %orig;
 	if (manager != nil) {
-		if ([manager filterCount] > NORMAL_EFFECT_COUNT + 1)
+		if ([manager filterCount] > NORMAL_EFFECT_COUNT + (DisableNoneFilter ? 0 : 1))
 			return manager;
 		#define addCIEffect(arg) _addCIEffect(displayNameFromCIFilterName(arg), arg, manager)
 		NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
@@ -792,6 +800,7 @@ static void EPLoader()
 	TweakEnabled = [[dict objectForKey:@"Enabled"] boolValue];
 	FillGrid = [[dict objectForKey:@"FillGrid"] boolValue];
 	AutoHideBB = [[dict objectForKey:@"AutoHideBB"] boolValue];
+	DisableNoneFilter = [[dict objectForKey:@"DisableNoneFilter"] boolValue];
 	#define readFloat(val, defaultVal) \
 		val = [dict objectForKey:[NSString stringWithUTF8String:#val]] ? [[dict objectForKey:[NSString stringWithUTF8String:#val]] floatValue] : defaultVal;
 	readFloat(CIColorMonochrome_R, .5)

@@ -140,6 +140,7 @@
 
 @interface PLEffectsGridView : UIView
 - (unsigned)_cellCount;
+- (BOOL)isBlackAndWhite;
 @end
 
 @interface PLImageAdjustmentView
@@ -171,6 +172,11 @@
 - (void)save:(UIBarButtonItem *)item;
 - (void)cancel:(UIBarButtonItem *)item;
 - (void)_saveAdjustmentsToCopy;
+@end
+
+@interface PLCameraController : NSObject
++ (PLCameraController *)sharedInstance;
+- (BOOL)isReady;
 @end
 
 @interface PLEditPhotoController (Addition)

@@ -134,6 +134,28 @@
         	<string>com.PS.EffectsPlus.prefs</string>
       </dict>
       <dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Remove the None filter</string>
+			<key>footerText</key>
+			<string>The empty filter with its name "none", you can remove that.</string>
+		</dict>
+		<dict>
+        	<key>cell</key>
+        	<string>PSSwitchCell</string>
+       		<key>default</key>
+        	<false/>
+        	<key>defaults</key>
+        	<string>com.PS.EffectsPlus</string>
+        	<key>key</key>
+        	<string>DisableNoneFilter</string>
+        	<key>label</key>
+        	<string>Enabled</string>
+        	<key>PostNotification</key>
+        	<string>com.PS.EffectsPlus.prefs</string>
+      </dict>
+      <dict>
       		<key>cell</key>
       		<string>PSGroupCell</string>
       </dict>
