@@ -281,67 +281,34 @@
 		[cell.textLabel setNumberOfLines:1];
 		[cell.textLabel setBackgroundColor:[UIColor clearColor]];
 	}
-	
-	if (indexPath.section == 0) {
-		if (_enabledEffects.count - 1 >= indexPath.row) {
-			NSString *enabledName = [_enabledEffects objectAtIndex:indexPath.row];
-    		[cell.textLabel setText:displayNameFromCIFilterName(enabledName)];
-    		if ([enabledName hasPrefix:@"CIPhotoEffect"]) {
-				[cell setBackgroundColor:stockColor];
-				[[cell imageView] setImage:FilterOn];
-			}
-    		else {
-    			BOOL pb = NO;
-    			for (NSString *name in pbArray) {
-    				if ([name isEqualToString:enabledName]) {
-    					pb = YES;
-    					break;
-    				}
-    			}
-    			if (pb) {
-    				[[cell imageView] setImage:PB];
-    				[cell setBackgroundColor:pbColor];
-    			}
-    			else {
-    				[[cell imageView] setImage:Filter];
-    				[cell setBackgroundColor:[UIColor clearColor]];
-    			}
-    		}
-    	}
-    }
-    else if (indexPath.section == 1) {
-    	if (_disabledEffects.count - 1 >= indexPath.row) {
-    		NSString *disabledName = [_disabledEffects objectAtIndex:indexPath.row];
-    		[cell.textLabel setText:displayNameFromCIFilterName(disabledName)];
-    		if ([disabledName hasPrefix:@"CIPhotoEffect"]) {
-				[cell setBackgroundColor:stockColor];
-				[[cell imageView] setImage:FilterOn];
-			}
-    		else {
-    			BOOL pb = NO;
-    			for (NSString *name in pbArray) {
-    				if ([name isEqualToString:disabledName]) {
-    					pb = YES;
-    					break;
-    				}
-    			}
-    			if (pb) {
-    				[[cell imageView] setImage:PB];
-    				[cell setBackgroundColor:pbColor];
-    			}
-    			else {
-    				[[cell imageView] setImage:Filter];
-    				[cell setBackgroundColor:[UIColor clearColor]];
-    			}
-			}
-    	}
-    }
-    return cell;
-}
 
-- (void)dealloc
-{
-	[super dealloc];
+	BOOL index0 = indexPath.section == 0;
+	NSMutableOrderedSet *effectDict = index0 ? _enabledEffects : _disabledEffects;
+	unsigned filterCount = effectDict.count;
+	if (filterCount - 1 >= indexPath.row) {
+		NSString *effectName = [effectDict objectAtIndex:indexPath.row];
+		[cell.textLabel setText:displayNameFromCIFilterName(effectName)];
+		if ([effectName hasPrefix:@"CIPhotoEffect"]) {
+			[cell setBackgroundColor:stockColor];
+			[[cell imageView] setImage:FilterOn];
+		} else {
+			BOOL pb = NO;
+			for (NSString *name in pbArray) {
+				if ([name isEqualToString:effectName]) {
+					pb = YES;
+					break;
+				}
+			}
+			if (pb) {
+				[[cell imageView] setImage:PB];
+				[cell setBackgroundColor:pbColor];
+			} else {
+				[[cell imageView] setImage:Filter];
+				[cell setBackgroundColor:[UIColor clearColor]];
+			}
+		}
+	}
+    return cell;
 }
 
 @end
