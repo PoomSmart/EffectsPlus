@@ -379,12 +379,16 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 
 - (unsigned)_filterIndexForGridIndex:(unsigned)index
 {
+	if (!DisableNoneFilter)
+		return %orig;
 	return [self isBlackAndWhite] ? index + [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 
 }
 
 - (unsigned)_gridIndexForFilterIndex:(unsigned)index
 {
+	if (!DisableNoneFilter)
+		return %orig;
 	return [self isBlackAndWhite] ? index - [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 }
 
