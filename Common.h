@@ -5,8 +5,10 @@
 #define kFontSize 14
 #define NORMAL_EFFECT_COUNT 8
 #define EXTRA_EFFECT_COUNT 23
-#define ENABLED_EFFECT @"EnabledEffects"
-#define DISABLED_EFFECT @"DisabledEffects"
+static const NSString *ENABLED_EFFECT = @"EnabledEffects";
+static const NSString *DISABLED_EFFECT = @"DisabledEffects";
+
+extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment);
 
 @interface _UIBackdropView : UIView
 @end
@@ -143,7 +145,7 @@
 - (BOOL)isBlackAndWhite;
 @end
 
-@interface PLImageAdjustmentView
+@interface PLImageAdjustmentView : UIView
 @property(retain) UIImage *editedImage;
 - (void)setEditedImage:(UIImage *)image;
 @end
@@ -166,17 +168,27 @@
 @interface PLEditPhotoController : UIViewController <UIActionSheetDelegate>
 @property(readonly) struct CGRect normalizedCropRect;
 - (UINavigationItem *)navigationItem;
+- (CIImage *)_newCIImageFromUIImage:(UIImage *)image;
 - (NSArray *)_currentNonGeometryFiltersWithEffectFilters:(NSArray *)filters;
+- (NSArray *)_cropAndStraightenFiltersForImageSize:(struct CGSize)size forceSquareCrop:(BOOL)crop forceUseGeometry:(BOOL)geometry;
+- (void)_setControlsEnabled:(BOOL)enabled animated:(BOOL)animated;
 - (void)_presentSavingHUD;
 - (void)_dismissSavingHUD;
 - (void)save:(UIBarButtonItem *)item;
 - (void)cancel:(UIBarButtonItem *)item;
-- (void)_saveAdjustmentsToCopy;
+- (void)saveAdjustments;
 @end
 
 @interface PLCameraController : NSObject
 + (PLCameraController *)sharedInstance;
 - (BOOL)isReady;
+@end
+
+@interface PLProgressHUD : UIView
+- (void)done;
+- (void)showInView:(id)view;
+- (void)hide;
+- (void)setText:(NSString *)text;
 @end
 
 @interface PLEditPhotoController (Addition)

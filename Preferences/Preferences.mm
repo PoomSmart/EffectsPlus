@@ -100,7 +100,7 @@
 		nil];
 	sheet.tag = 9596;
 	[sheet showInView:self.view];
-	[sheet release];	
+	[sheet release];
 }
 
 - (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex
