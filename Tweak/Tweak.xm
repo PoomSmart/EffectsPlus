@@ -2,6 +2,15 @@
 #import <CoreImage/CIFilter.h>
 #import <ImageIO/ImageIO.h>
 #import <AssetsLibrary/ALAssetsLibrary.h>
+/*#include <substrate.h>
+template <typename Type_>
+static void nlset(Type_ &function, struct nlist *nl, size_t index) {
+    struct nlist &name(nl[index]);
+    uintptr_t value(name.n_value);
+    if ((name.n_desc & N_ARM_THUMB_DEF) != 0)
+        value |= 0x00000001;
+    function = reinterpret_cast<Type_>(value);
+}*/
 
 static BOOL TweakEnabled;
 static BOOL FillGrid;
@@ -377,6 +386,9 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 
 %hook PLEffectsGridView
 
+/*- (void)_renderGridFilters:(id)filters withInputImage:(id)inputImage ciContext:(id)context mirrorRendering:(BOOL)rendering
+{}*/
+
 - (unsigned)_filterIndexForGridIndex:(unsigned)index
 {
 	if (!DisableNoneFilter)
@@ -522,15 +534,15 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 // The replaced implementation without image size check, to prevent crashing exception
 - (void)replaceEditedImage:(UIImage *)image
 {
-	if (MSHookIvar<UIImage *>(self, "_editedImage") != nil) {
-		[MSHookIvar<UIImage *>(self, "_editedImage") release];
-		MSHookIvar<UIImage *>(self, "_editedImage") = [image retain];
-		[self setEditedImage:MSHookIvar<UIImage *>(self, "_editedImage")];
-	}
-	[MSHookIvar<UIImageView *>(self, "_imageView") setImage:[MSHookIvar<UIImage *>(self, "_editedImage") retain]];
+	[MSHookIvar<UIImage *>(self, "_editedImage") release];
+	MSHookIvar<UIImage *>(self, "_editedImage") = [image retain];
+	[self setEditedImage:MSHookIvar<UIImage *>(self, "_editedImage")];
+	[MSHookIvar<UIImageView *>(self, "_imageView") setImage:MSHookIvar<UIImage *>(self, "_editedImage")];
 }
 
 %end
+
+static PLProgressHUD *epHUD = nil;
 
 %hook PLEditPhotoController
 
@@ -548,14 +560,19 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	if (popup.tag == 9598) {
 		switch (buttonIndex) {
 			case 0:
-				[self save:[[self navigationItem] rightBarButtonItem]];
+				[self save:nil];
 				break;
 			case 1:
-				[self _presentSavingHUD];
-				[self performSelector:@selector(EPSavePhoto) withObject:nil afterDelay:.02];
+				[self _setControlsEnabled:NO animated:NO];
+				epHUD = [[PLProgressHUD alloc] init];
+				[epHUD setText:PLLocalizedFrameworkString(@"SAVING_PHOTO", nil)];
+				[epHUD showInView:self.view];
+				[self EPSavePhoto];
 				break;
 			case 2:
-				[self _saveAdjustmentsToCopy];
+				MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = YES;
+				[self saveAdjustments];
+				MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = NO;
 				break;
 		}
 	} else
@@ -568,8 +585,10 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	PLManagedAsset *asset = MSHookIvar<PLManagedAsset *>(self, "_editedPhoto");
 	NSString *actualImagePath = [asset pathForImageFile];
 	UIImage *actualImage = [UIImage imageWithContentsOfFile:actualImagePath];
-	NSArray *effectFilters = [self _currentNonGeometryFiltersWithEffectFilters:MSHookIvar<NSArray *>(self, "_effectFilters")];
-	CIImage *ciImage = [CIImage imageWithData:UIImagePNGRepresentation(actualImage)];
+	NSMutableArray *effectFilters = [[self _currentNonGeometryFiltersWithEffectFilters:MSHookIvar<NSArray *>(self, "_effectFilters")] mutableCopy];
+	CIImage *ciImage = [self _newCIImageFromUIImage:actualImage];
+	
+	// Fixing image orientation, still dirt
 	int orientation = 1;
 	float rotation = MSHookIvar<float>(self, "_rotationAngle");
 	float angle = rotation;
@@ -581,19 +600,30 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 		orientation = 8;
 	else if (round(angle) == 5 || (round(angle) == -2 && angle < 0))
 		orientation = 6;
+		
+	// There is a function that may does the job above. Anyway, it doesn't work on arm64 and looks like it always returns orientation 6
+	/*#define PhotoLibrary "/System/Library/PrivateFrameworks/PhotoLibrary.framework/PhotoLibrary"
+	if (dlopen(PhotoLibrary, RTLD_LAZY) != NULL) {
+		int (*_orientationFromAngle)(float);
+		struct nlist nl[2];
+		memset(nl, 0, sizeof(nl));
+		nl[0].n_un.n_name = (char *)"_orientationFromAngle";
+		nlist(PhotoLibrary, nl);
+		nlset(_orientationFromAngle, nl, 0);
+		orientation = _orientationFromAngle(rotation);
+	}*/
+	
+	NSArray *cropAndStraightenFilters = [self _cropAndStraightenFiltersForImageSize:ciImage.extent.size forceSquareCrop:NO forceUseGeometry:NO];
+	[effectFilters addObjectsFromArray:cropAndStraightenFilters];
 	CIImage *ciImageWithFilters = [%c(PLCIFilterUtilities) outputImageFromFilters:effectFilters inputImage:ciImage orientation:orientation copyFiltersFirst:NO];
-	struct CGRect cropRect = [self normalizedCropRect];
-	if (!CGRectIsEmpty(cropRect)) {
-		CGSize imageSize = ciImage.extent.size;
-		CGRect trueCropRect = CGRectMake(cropRect.origin.x*imageSize.width, cropRect.origin.y*imageSize.height, cropRect.size.width*imageSize.width, cropRect.size.height*imageSize.height);
-		ciImageWithFilters = [ciImageWithFilters imageByCroppingToRect:trueCropRect];
-	}
 	CGImageRef cgImage = [MSHookIvar<CIContext *>(self, "_ciContextFullSize") createCGImage:ciImageWithFilters fromRect:[ciImageWithFilters extent]];
 	ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
 	[library writeImageToSavedPhotosAlbum:cgImage metadata:nil completionBlock:^(NSURL *assetURL, NSError *error) {
 		CGImageRelease(cgImage);
-		[self _dismissSavingHUD];
-		[self cancel:[[self navigationItem] leftBarButtonItem]];
+		[epHUD hide];
+		[epHUD release];
+		[self _setControlsEnabled:YES animated:NO];
+		[self cancel:nil];
 	}];
 	[library release];
 }
@@ -853,10 +883,8 @@ static void PreferencesChangedCallback(CFNotificationCenterRef center, void *obs
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, PreferencesChangedCallback, CFSTR(PreferencesChangedNotification), NULL, CFNotificationSuspensionBehaviorCoalesce);
 	EPLoader();
-	if (!TweakEnabled) {
-		[pool drain];
-		return;
+	if (TweakEnabled) {
+		%init;
 	}
-	%init;
 	[pool drain];
 }
