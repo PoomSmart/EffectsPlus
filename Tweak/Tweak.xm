@@ -86,6 +86,10 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 // Workaround for fixing the unwanted selected filter reset, maybe this is a better API?
 - (void)setSelectedEffect:(CIFilter *)filter
 {
+	if (filter == nil) {
+		%orig;
+		return;
+	}
 	NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
 	for (NSInteger i=0; i<[filters count]; i++) {
 		if ([((CIFilter *)[filters objectAtIndex:i]).name isEqualToString:filter.name]) {
