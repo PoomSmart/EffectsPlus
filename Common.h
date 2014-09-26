@@ -1,4 +1,4 @@
-#import <Foundation/Foundation.h>
+#import "../PS.h"
 
 #define PREF_PATH @"/var/mobile/Library/Preferences/com.PS.EffectsPlus.plist"
 #define PreferencesChangedNotification "com.PS.EffectsPlus.prefs"
@@ -122,25 +122,33 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 @end
 
 @interface PLEffectFilterManager : NSObject
-+ (id)sharedInstance;
-- (id)aggdNameForFilter:(id)filter;
-- (id)displayNameForFilter:(id)filter;
-- (id)displayNameForIndex:(unsigned)index;
-- (unsigned)_indexForFilter:(id)filter;
-- (void)_addEffectNamed:(NSString *)name aggdName:(NSString *)aggdName filter:(CIFilter *)filter;
-- (unsigned)blackAndWhiteFilterCount;
++ (PLEffectFilterManager *)sharedInstance;
 - (unsigned)blackAndWhiteFilterStartIndex;
-- (id)filterForIndex:(unsigned)index;
 - (unsigned)filterCount;
-- (id)init;
-- (void)dealloc;
+- (void)_addEffectNamed:(NSString *)name aggdName:(NSString *)aggdName filter:(CIFilter *)filter;
+@end
+
+@interface CAMEffectFilterManager : NSObject
++ (CAMEffectFilterManager *)sharedInstance;
+- (unsigned)blackAndWhiteFilterStartIndex;
+- (unsigned)filterCount;
+- (void)_addEffectNamed:(NSString *)name aggdName:(NSString *)aggdName filter:(CIFilter *)filter;
 @end
 
 @interface PLEffectSelectionViewController : UIViewController
 - (void)_setSelectedIndexPath:(NSIndexPath *)indexPath;
 @end
 
+@interface CAMEffectSelectionViewController : UIViewController
+- (void)_setSelectedIndexPath:(NSIndexPath *)indexPath;
+@end
+
 @interface PLEffectsGridView : UIView
+- (unsigned)_cellCount;
+- (BOOL)isBlackAndWhite;
+@end
+
+@interface CAMEffectsGridView : UIView
 - (unsigned)_cellCount;
 - (BOOL)isBlackAndWhite;
 @end
@@ -154,7 +162,11 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 @end
 
 @interface PLCameraView : UIView
-@property(readonly, assign, nonatomic) CAMBottomBar* _bottomBar;
+@property(readonly, assign, nonatomic) CAMBottomBar *_bottomBar;
+@end
+
+@interface CAMCameraView : UIView
+@property(readonly, assign, nonatomic) CAMBottomBar *_bottomBar;
 @end
 
 @interface _PLManagedAsset : NSObject
@@ -179,8 +191,13 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 - (void)saveAdjustments;
 @end
 
-@interface PLCameraController : NSObject
+@interface PLCameraController
 + (PLCameraController *)sharedInstance;
+- (BOOL)isReady;
+@end
+
+@interface CAMCaptureController
++ (CAMCaptureController *)sharedInstance;
 - (BOOL)isReady;
 @end
 

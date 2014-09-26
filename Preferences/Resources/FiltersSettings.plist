@@ -10,8 +10,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>The value type for text boxes is just a numeric value (NSNumber), you can put them with or without digits.
-Options with 3 sliders together are for setting color, in RGB, respectively.</string>
+			<string>Options with 3 sliders together are for setting color, in RGB, respectively.</string>
 		</dict>
 
 		<dict>

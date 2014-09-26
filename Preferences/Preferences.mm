@@ -326,7 +326,7 @@
 - (void)addBtn
 {
 	UIBarButtonItem *hideKBBtn = [[UIBarButtonItem alloc]
-        initWithTitle:@"Hide KB" style:UIBarButtonItemStyleBordered
+        initWithTitle:@"⏬" style:UIBarButtonItemStyleBordered
         target:self action:@selector(hideKeyboard)];
 	((UINavigationItem *)[super navigationItem]).rightBarButtonItem = hideKBBtn;
 	[hideKBBtn release];
@@ -371,7 +371,7 @@
 
 - (void)donate:(id)param
 {
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=GBQGZL8EFMM86"]];
+	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:PS_DONATE_URL]];
 }
 
 - (NSArray *)specifiers

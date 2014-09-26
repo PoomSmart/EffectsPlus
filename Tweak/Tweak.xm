@@ -2,15 +2,6 @@
 #import <CoreImage/CIFilter.h>
 #import <ImageIO/ImageIO.h>
 #import <AssetsLibrary/ALAssetsLibrary.h>
-/*#include <substrate.h>
-template <typename Type_>
-static void nlset(Type_ &function, struct nlist *nl, size_t index) {
-    struct nlist &name(nl[index]);
-    uintptr_t value(name.n_value);
-    if ((name.n_desc & N_ARM_THUMB_DEF) != 0)
-        value |= 0x00000001;
-    function = reinterpret_cast<Type_>(value);
-}*/
 
 static BOOL TweakEnabled;
 static BOOL FillGrid;
@@ -45,7 +36,6 @@ static float qualityFactor;
 
 %hook CIImage
 
-// This method will be very nice if it doesn't reduce the image size, so we have to fix that
 - (CIImage *)_imageByApplyingBlur:(double)blur
 {
 	if (!internalBlurHook)
@@ -59,7 +49,6 @@ static float qualityFactor;
 
 %end
 
-// Some CIFilters reduce the image size, we have to fix that
 static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFilter *itsFilter)
 {
 	if (!globalFilterHook)
@@ -81,32 +70,8 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 	return (NSDictionary *)mutableInputDict;
 }
 
-%hook PLEffectSelectionViewController
-
-// Workaround for fixing the unwanted selected filter reset, maybe this is a better API?
-- (void)setSelectedEffect:(CIFilter *)filter
-{
-	if (filter == nil) {
-		%orig;
-		return;
-	}
-	NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
-	for (NSInteger i=0; i<[filters count]; i++) {
-		if ([((CIFilter *)[filters objectAtIndex:i]).name isEqualToString:filter.name]) {
-			[self _setSelectedIndexPath:[NSIndexPath indexPathForItem:i inSection:1]];
-			return;
-		}
-	}
-	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Effects+" message:@"ERROR: The selected filter isn't existed in the current library. You have to enable this filter in settings first." delegate:self cancelButtonTitle:@"Ok" otherButtonTitles:nil];
-	[alert show];
-	[alert release];
-}
-
-%end
-
 %hook CIFilter
 
-// Some filters that cannot be serialized will be replaced their fake serialized XMP string with their name instead
 - (NSString *)_serializedXMPString
 {
 	NSString *name = %orig;
@@ -377,74 +342,6 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 }
 */
 
-%hook PLCameraView
-
-- (void)cameraController:(id)controller didStartTransitionToShowEffectsGrid:(BOOL)showEffectsGrid animated:(BOOL)animated
-{
-	%orig;
-	if (AutoHideBB)
-		self._bottomBar.hidden = showEffectsGrid;
-}
-
-%end
-
-%hook PLEffectsGridView
-
-/*- (void)_renderGridFilters:(id)filters withInputImage:(id)inputImage ciContext:(id)context mirrorRendering:(BOOL)rendering
-{}*/
-
-- (unsigned)_filterIndexForGridIndex:(unsigned)index
-{
-	if (!DisableNoneFilter)
-		return %orig;
-	return [self isBlackAndWhite] ? index + [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
-
-}
-
-- (unsigned)_gridIndexForFilterIndex:(unsigned)index
-{
-	if (!DisableNoneFilter)
-		return %orig;
-	return [self isBlackAndWhite] ? index - [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
-}
-
-// Set the exact cell count per row of the filters grid to fit all filters there
-- (unsigned)_cellsPerRow
-{
-	unsigned filterCount = (DisableNoneFilter ? 0 : 1) + [[%c(PLEffectFilterManager) sharedInstance] filterCount];
-	if (filterCount <= 9)
-		return %orig;
-	if (filterCount <= 16)
-		return 4;
-	if (filterCount <= 25)
-		return 5;
-	if (filterCount <= 36)
-		return 6;
-	return %orig;
-}
-
-// Return the exact filters count to reduce the CPU processing for filters
-- (unsigned)_cellCount
-{
-	if (FillGrid)
-		return %orig;
-	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
-	NSArray *enabledArray = (NSArray *)[prefDict objectForKey:ENABLED_EFFECT];
-	return enabledArray != nil ? (DisableNoneFilter ? 0 : 1) + [enabledArray count] : %orig;
-}
-
-- (void)_updatePixelBufferPoolForSize:(CGSize)size
-{
-	%orig(CGSizeMake(size.width*qualityFactor, size.height*qualityFactor));
-}
-
-- (CVBufferRef)_createPixelBufferForSize:(CGSize)size
-{
-	return %orig(CGSizeMake(size.width*qualityFactor, size.height*qualityFactor));
-}
-
-%end
-
 /*%hook PLEffectsGridLabelsView
 
 - (void)_replaceLabelViews:(id)view
@@ -483,7 +380,8 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	if ([filterName isEqualToString:@"CIMirror"]) {
 		[(CIMirror *)filter setInputPoint:normalHalfExtent];
 		[(CIMirror *)filter setInputAngle:@(1.5*M_PI)];
-		if (![[%c(PLCameraController) sharedInstance] isReady])
+		Class Controller = isiOS8 ? %c(CAMCaptureController) : %c(PLCameraController);
+		if (![(id)[Controller sharedInstance] isReady])
 			[(CIMirror *)filter setInputAngle:@(-2*M_PI)];
 	}
 	else if ([filterName isEqualToString:@"CITriangleKaleidoscope"]) {
@@ -533,9 +431,193 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	}
 }
 
+%hook PLCIFilterUtilities
+
++ (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)image orientation:(UIImageOrientation)orientation copyFiltersFirst:(BOOL)copyFirst
+{
+	if ([filters count] == 0)
+		return %orig;
+	internalBlurHook = YES;
+	globalFilterHook = YES;
+	CGRect extent = [image extent];
+	for (CIFilter *filter in filters) {
+		if (![filter respondsToSelector:@selector(_outputProperties)])
+			effectCorrection(filter, extent, orientation);
+	}
+	/*CIFilter *anotherFilter = nil;
+	NSString *filter2 = filter1.anotherFilter;*/
+	//BOOL multiple = (filter2 != nil);
+	/*if (multiple) {
+		anotherFilter = [CIFilter filterWithName:filter2];
+		effectCorrection(anotherFilter, extent, orientation);
+	}*/
+	
+	/*multiple ? @[filter1, anotherFilter] : */
+	NSMutableArray *mutableFiltersArray = [filters mutableCopy];
+	if ([filters count] > 1) {
+		for (int i = 0; i < [filters count]; i++) {
+			if (![(CIFilter *)[mutableFiltersArray objectAtIndex:i] respondsToSelector:@selector(_outputProperties)]) {
+				if (i != 0) {
+					[mutableFiltersArray insertObject:[mutableFiltersArray objectAtIndex:i] atIndex:0];
+					[mutableFiltersArray removeObjectAtIndex:i+1];
+				}
+			}
+		}
+	}
+	CIImage *outputImage = %orig(mutableFiltersArray, image, orientation, copyFirst);
+	internalBlurHook = NO;
+	globalFilterHook = NO;
+	return outputImage;
+}
+
+%end
+
+static void configEffect(CIFilter *filter)
+{
+	NSString *filterName = filter.name;
+	if ([filterName isEqualToString:@"CIGloom"])
+		[(CIGloom *)filter setInputIntensity:@(CIGloom_inputIntensity)];
+	else if ([filterName isEqualToString:@"CIBloom"])
+		[(CIBloom *)filter setInputIntensity:@(CIBloom_inputIntensity)];
+	else if ([filterName isEqualToString:@"CITwirlDistortion"])
+		[(CITwirlDistortion *)filter setInputAngle:@(M_PI/2+CITwirlDistortion_inputAngle)];
+	else if ([filterName isEqualToString:@"CIPinchDistortion"])
+		[(CIPinchDistortion *)filter setInputScale:@(CIPinchDistortion_inputScale)];
+	else if ([filterName isEqualToString:@"CIVibrance"])
+		[(CIVibrance *)filter setInputAmount:@(CIVibrance_inputAmount)];
+	else if ([filterName isEqualToString:@"CISepiaTone"])
+		[(CISepiaTone *)filter setInputIntensity:@(CISepiaTone_inputIntensity)];
+	else if ([filterName isEqualToString:@"CIColorMonochrome"])
+		[(CIColorMonochrome *)filter setInputColor:[CIColor colorWithRed:CIColorMonochrome_R green:CIColorMonochrome_G blue:CIColorMonochrome_B]];
+	else if ([filterName isEqualToString:@"CIFalseColor"]) {
+		CIColor *color0 = [CIColor colorWithRed:CIFalseColor_R1 green:CIFalseColor_G1 blue:CIFalseColor_B1];
+		CIColor *color1 = [CIColor colorWithRed:CIFalseColor_R2 green:CIFalseColor_G2 blue:CIFalseColor_B2];
+		[(CIFalseColor *)filter setInputColor0:color0];
+		[(CIFalseColor *)filter setInputColor1:color1];
+	}
+	else if ([filterName isEqualToString:@"CILightTunnel"])
+		[(CILightTunnel *)filter setInputRotation:@(CILightTunnel_inputRotation)];
+}
+
+static void _addCIEffect(NSString *displayName, NSString *filterName, NSObject *manager)
+{
+	if ([filterName hasPrefix:@"CIPhotoEffect"])
+		return;
+	CIFilter *filter1 = nil;
+	/*NSString *filter2 = nil;
+	NSCharacterSet *s = [NSCharacterSet characterSetWithCharactersInString:@"_"];
+	NSRange r = [filterName rangeOfCharacterFromSet:s];
+	if (r.location != NSNotFound) {
+		NSArray *effects = [filterName componentsSeparatedByString:@"_"];
+		filter1 = [CIFilter filterWithName:(NSString *)[effects objectAtIndex:0]];
+		filter2 = (NSString *)[effects objectAtIndex:1];
+	} else*/
+		filter1 = [CIFilter filterWithName:filterName];
+	//filter1.anotherFilter = filter2;
+	configEffect(filter1);
+	if (![MSHookIvar<NSMutableArray *>(manager, "_effects") containsObject:filter1])
+		[(id)manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter1];
+}
+
+/*%hook PLEffectsGridView
+
+- (NSMutableArray *)filterIndices
+{
+	NSMutableArray *array = %orig;
+	if (array != nil) {
+		NSUInteger count = [array count];
+		for (unsigned int i=0;i<count;i++) {
+			NSNumber *number = [array objectAtIndex:i];
+			if ([number intValue] + 1 > count && count >= 9) {
+				NSObject *o = [[[array objectAtIndex:i] retain] autorelease];
+				[array removeObjectAtIndex:i];
+				[array insertObject:o atIndex:floor(count)/2];
+				break;
+			}
+		}
+	}
+	return array;
+}
+
+%end*/
+
+static void addExtraSortedEffects(NSObject *effectFilterManager)
+{
+	#define addCIEffect(arg) _addCIEffect(displayNameFromCIFilterName(arg), arg, effectFilterManager)
+	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+	if (prefDict != nil) {
+		NSArray *effects = [prefDict objectForKey:ENABLED_EFFECT];
+		if (effects == nil)
+			return;
+		for (int i = 0; i < [effects count]; i++) {
+			NSString *string = [effects objectAtIndex:i];
+			addCIEffect(string);
+		}
+
+		NSMutableArray *array = [NSMutableArray array];
+		NSMutableArray *allEffects = MSHookIvar<NSMutableArray *>(effectFilterManager, "_effects");
+		NSMutableArray *names = MSHookIvar<NSMutableArray *>(effectFilterManager, "_names");
+		NSMutableArray *aggdNames = MSHookIvar<NSMutableArray *>(effectFilterManager, "_aggdNames");
+		for (int i = 0; i < [allEffects count]; i++) {
+			NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
+									(CIFilter *)[allEffects objectAtIndex:i], @"Filter",
+									[names objectAtIndex:i], @"displayName",
+									[aggdNames objectAtIndex:i], @"aggdName", nil];
+			[array addObject:dict];
+		}
+		for (int i = 0; i < [effects count]; i++) {
+			NSString *string1 = [effects objectAtIndex:i];
+			NSString *string2 = ((CIFilter *)[[array objectAtIndex:i] objectForKey:@"Filter"]).name;
+			if (![string1 isEqualToString:string2]) {
+				for (int j = 0; j < [array count]; j++) {
+					NSString *string3 = ((CIFilter *)[[array objectAtIndex:j] objectForKey:@"Filter"]).name;
+					if ([string3 isEqualToString:string1])
+						[array exchangeObjectAtIndex:i withObjectAtIndex:j];
+				}
+			}
+		}
+		NSArray *disabledEffects = [prefDict objectForKey:DISABLED_EFFECT];
+		BOOL deleteSome = (disabledEffects != nil);
+		if (deleteSome) {
+			for (int i = 0; i < [disabledEffects count]; i++) {
+				for (int j = 0; j < [array count]; j++) {
+					if ([((CIFilter *)[[array objectAtIndex:j] objectForKey:@"Filter"]).name isEqualToString:[disabledEffects objectAtIndex:i]])
+						[array removeObjectAtIndex:j];
+				}
+			}
+		}
+			
+		NSMutableArray *a1 = [NSMutableArray array];
+		for (int i = 0; i < [array count]; i++) {
+			[a1 addObject:[[array objectAtIndex:i] objectForKey:@"Filter"]];
+		}
+		[MSHookIvar<NSMutableArray *>(effectFilterManager, "_effects") setArray:a1];
+			
+		NSMutableArray *a2 = [NSMutableArray array];
+		for (int i = 0; i < [array count]; i++) {
+			[a2 addObject:[[array objectAtIndex:i] objectForKey:@"displayName"]];
+		}
+		[MSHookIvar<NSMutableArray *>(effectFilterManager, "_names") setArray:a2];
+			
+		NSMutableArray *a3 = [NSMutableArray array];
+		for (int i = 0; i < [array count]; i++) {
+			[a3 addObject:[[array objectAtIndex:i] objectForKey:@"aggdName"]];
+		}
+		[MSHookIvar<NSMutableArray *>(effectFilterManager, "_aggdNames") setArray:a3];
+	}
+}
+
+static void showFilterSelectionAlert(id self)
+{
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Effects+" message:@"ERROR: The selected filter isn't existed in the current library. You have to enable this filter in settings first." delegate:self cancelButtonTitle:@"Ok" otherButtonTitles:nil];
+	[alert show];
+	[alert release];
+}
+
+%group iOS7
+
 %hook PLImageAdjustmentView
 
-// The replaced implementation without image size check, to prevent crashing exception
 - (void)replaceEditedImage:(UIImage *)image
 {
 	[MSHookIvar<UIImage *>(self, "_editedImage") release];
@@ -624,8 +706,10 @@ static PLProgressHUD *epHUD = nil;
 	ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
 	[library writeImageToSavedPhotosAlbum:cgImage metadata:nil completionBlock:^(NSURL *assetURL, NSError *error) {
 		CGImageRelease(cgImage);
-		[epHUD hide];
-		[epHUD release];
+		if (epHUD != nil) {
+			[epHUD hide];
+			[epHUD release];
+		}
 		[self _setControlsEnabled:YES animated:NO];
 		[self cancel:nil];
 	}];
@@ -642,193 +726,183 @@ static PLProgressHUD *epHUD = nil;
 
 %end
 
-%hook PLCIFilterUtilities
-
-// This method is very important for rendering filters (Yes, more than 1 filter is permitted) onto the image, is used by Camera and Photos app
-// These CIFilter written here need some modification in order to make them work correctly
-+ (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)image orientation:(UIImageOrientation)orientation copyFiltersFirst:(BOOL)copyFirst
-{
-	if ([filters count] == 0)
-		return %orig; // FIXME: This causes crashing if there are no filters in the array
-	internalBlurHook = YES;
-	globalFilterHook = YES;
-	CGRect extent = [image extent];
-	for (CIFilter *filter in filters) {
-		if (![filter respondsToSelector:@selector(_outputProperties)])
-			effectCorrection(filter, extent, orientation);
-	}
-	/*CIFilter *anotherFilter = nil;
-	NSString *filter2 = filter1.anotherFilter;*/
-	//BOOL multiple = (filter2 != nil);
-	/*if (multiple) {
-		anotherFilter = [CIFilter filterWithName:filter2];
-		effectCorrection(anotherFilter, extent, orientation);
-	}*/
-	
-	// Multiple filters is possible! I will add this feature soon ;)
-	/*multiple ? @[filter1, anotherFilter] : */
-	NSMutableArray *mutableFiltersArray = [filters mutableCopy];
-	if ([filters count] > 1) {
-		for (int i=0; i<[filters count]; i++) {
-			if (![(CIFilter *)[mutableFiltersArray objectAtIndex:i] respondsToSelector:@selector(_outputProperties)]) {
-				if (i != 0) {
-					[mutableFiltersArray insertObject:[mutableFiltersArray objectAtIndex:i] atIndex:0];
-					[mutableFiltersArray removeObjectAtIndex:i+1];
-				}
-			}
-		}
-	}
-	CIImage *outputImage = %orig(mutableFiltersArray, image, orientation, copyFirst);
-	internalBlurHook = NO;
-	globalFilterHook = NO;
-	return outputImage;
-}
-
-%end
-
-static void configEffect(CIFilter *filter)
-{
-	NSString *filterName = filter.name;
-	if ([filterName isEqualToString:@"CIGloom"])
-		[(CIGloom *)filter setInputIntensity:@(CIGloom_inputIntensity)];
-	else if ([filterName isEqualToString:@"CIBloom"])
-		[(CIBloom *)filter setInputIntensity:@(CIBloom_inputIntensity)];
-	else if ([filterName isEqualToString:@"CITwirlDistortion"])
-		[(CITwirlDistortion *)filter setInputAngle:@(M_PI/2+CITwirlDistortion_inputAngle)];
-	else if ([filterName isEqualToString:@"CIPinchDistortion"])
-		[(CIPinchDistortion *)filter setInputScale:@(CIPinchDistortion_inputScale)];
-	else if ([filterName isEqualToString:@"CIVibrance"])
-		[(CIVibrance *)filter setInputAmount:@(CIVibrance_inputAmount)];
-	else if ([filterName isEqualToString:@"CISepiaTone"])
-		[(CISepiaTone *)filter setInputIntensity:@(CISepiaTone_inputIntensity)];
-	else if ([filterName isEqualToString:@"CIColorMonochrome"])
-		[(CIColorMonochrome *)filter setInputColor:[CIColor colorWithRed:CIColorMonochrome_R green:CIColorMonochrome_G blue:CIColorMonochrome_B]];
-	else if ([filterName isEqualToString:@"CIFalseColor"]) {
-		CIColor *color0 = [CIColor colorWithRed:CIFalseColor_R1 green:CIFalseColor_G1 blue:CIFalseColor_B1];
-		CIColor *color1 = [CIColor colorWithRed:CIFalseColor_R2 green:CIFalseColor_G2 blue:CIFalseColor_B2];
-		[(CIFalseColor *)filter setInputColor0:color0];
-		[(CIFalseColor *)filter setInputColor1:color1];
-	}
-	else if ([filterName isEqualToString:@"CILightTunnel"])
-		[(CILightTunnel *)filter setInputRotation:@(CILightTunnel_inputRotation)];
-}
-
-static void _addCIEffect(NSString *displayName, NSString *filterName, PLEffectFilterManager *manager)
-{
-	if ([filterName hasPrefix:@"CIPhotoEffect"])
-		return;
-	CIFilter *filter1 = nil;
-	/*NSString *filter2 = nil;
-	NSCharacterSet *s = [NSCharacterSet characterSetWithCharactersInString:@"_"];
-	NSRange r = [filterName rangeOfCharacterFromSet:s];
-	if (r.location != NSNotFound) {
-		NSArray *effects = [filterName componentsSeparatedByString:@"_"];
-		filter1 = [CIFilter filterWithName:(NSString *)[effects objectAtIndex:0]];
-		filter2 = (NSString *)[effects objectAtIndex:1];
-	} else*/
-		filter1 = [CIFilter filterWithName:filterName];
-	//filter1.anotherFilter = filter2;
-	configEffect(filter1);
-	[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter1];
-}
-
-/*%hook PLEffectsGridView
-
-- (NSMutableArray *)filterIndices
-{
-	NSMutableArray *array = %orig;
-	if (array != nil) {
-		NSUInteger count = [array count];
-		for (unsigned int i=0;i<count;i++) {
-			NSNumber *number = [array objectAtIndex:i];
-			if ([number unsignedIntegerValue] + 1 > count && count >= 9) {
-				NSObject *o = [[[array objectAtIndex:i] retain] autorelease];
-				[array removeObjectAtIndex:i];
-				[array insertObject:o atIndex:floor(count)/2];
-				break;
-			}
-		}
-	}
-	return array;
-}
-
-%end*/
-
 %hook PLEffectFilterManager
 
 - (PLEffectFilterManager *)init
 {
 	PLEffectFilterManager *manager = %orig;
-	if (manager != nil) {
-		if ([manager filterCount] > NORMAL_EFFECT_COUNT + (DisableNoneFilter ? 0 : 1))
-			return manager;
-		#define addCIEffect(arg) _addCIEffect(displayNameFromCIFilterName(arg), arg, manager)
-		NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
-		if (prefDict != nil) {
-			NSArray *effects = [prefDict objectForKey:ENABLED_EFFECT];
-			if (effects == nil)
-				return manager;
-			for (int i=0;i<[effects count];i++) {
-				NSString *string = [effects objectAtIndex:i];
-				addCIEffect(string);
-			}
-
-			// Sorting codes!
-			NSMutableArray *array = [NSMutableArray array];
-			NSMutableArray *allEffects = MSHookIvar<NSMutableArray *>(self, "_effects");
-			NSMutableArray *names = MSHookIvar<NSMutableArray *>(self, "_names");
-			NSMutableArray *aggdNames = MSHookIvar<NSMutableArray *>(self, "_aggdNames");
-			for (int i = 0; i < [allEffects count]; i++) {
-				NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
-										(CIFilter *)[allEffects objectAtIndex:i], @"Filter",
-										[names objectAtIndex:i], @"displayName",
-										[aggdNames objectAtIndex:i], @"aggdName", nil];
-				[array addObject:dict];
-			}
-			for (int i=0;i<[effects count];i++) {
-				NSString *string1 = [effects objectAtIndex:i];
-				NSString *string2 = ((CIFilter *)[[array objectAtIndex:i] objectForKey:@"Filter"]).name;
-				if (![string1 isEqualToString:string2]) {
-					for (int j=0;j<[array count];j++) {
-						NSString *string3 = ((CIFilter *)[[array objectAtIndex:j] objectForKey:@"Filter"]).name;
-						if ([string3 isEqualToString:string1])
-							[array exchangeObjectAtIndex:i withObjectAtIndex:j];
-					}
-				}
-			}
-			NSArray *disabledEffects = [prefDict objectForKey:DISABLED_EFFECT];
-			BOOL deleteSome = (disabledEffects != nil);
-			if (deleteSome) {
-				for (int i=0;i<[disabledEffects count];i++) {
-					for (int j=0;j<[array count];j++) {
-						if ([((CIFilter *)[[array objectAtIndex:j] objectForKey:@"Filter"]).name isEqualToString:[disabledEffects objectAtIndex:i]])
-							[array removeObjectAtIndex:j];
-					}
-				}
-			}
-			
-			// Apply the sorted stuffs
-			NSMutableArray *a1 = [NSMutableArray array];
-			for (int i=0;i<[array count];i++) {
-				[a1 addObject:[[array objectAtIndex:i] objectForKey:@"Filter"]];
-			}
-			[MSHookIvar<NSMutableArray *>(self, "_effects") setArray:a1];
-			
-			NSMutableArray *a2 = [NSMutableArray array];
-			for (int i=0;i<[array count];i++) {
-				[a2 addObject:[[array objectAtIndex:i] objectForKey:@"displayName"]];
-			}
-			[MSHookIvar<NSMutableArray *>(self, "_names") setArray:a2];
-			
-			NSMutableArray *a3 = [NSMutableArray array];
-			for (int i=0;i<[array count];i++) {
-				[a3 addObject:[[array objectAtIndex:i] objectForKey:@"aggdName"]];
-			}
-			[MSHookIvar<NSMutableArray *>(self, "_aggdNames") setArray:a3];
-		}
-	}
+	addExtraSortedEffects(manager);
 	return manager;
 }
+
+%end
+
+%hook PLEffectsGridView
+
+- (unsigned)_filterIndexForGridIndex:(unsigned)index
+{
+	if (!DisableNoneFilter)
+		return %orig;
+	return [self isBlackAndWhite] ? index + [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
+}
+
+- (unsigned)_gridIndexForFilterIndex:(unsigned)index
+{
+	if (!DisableNoneFilter)
+		return %orig;
+	return [self isBlackAndWhite] ? index - [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
+}
+
+- (unsigned)_cellsPerRow
+{
+	unsigned filterCount = (DisableNoneFilter ? 0 : 1) + [[%c(PLEffectFilterManager) sharedInstance] filterCount];
+	if (filterCount <= 9)
+		return %orig;
+	if (filterCount <= 16)
+		return 4;
+	if (filterCount <= 25)
+		return 5;
+	if (filterCount <= 36)
+		return 6;
+	return %orig;
+}
+
+- (unsigned)_cellCount
+{
+	if (FillGrid)
+		return %orig;
+	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+	NSArray *enabledArray = (NSArray *)[prefDict objectForKey:ENABLED_EFFECT];
+	return enabledArray != nil ? (DisableNoneFilter ? 0 : 1) + [enabledArray count] : %orig;
+}
+
+- (void)_updatePixelBufferPoolForSize:(CGSize)size
+{
+	%orig(CGSizeMake(size.width*qualityFactor, size.height*qualityFactor));
+}
+
+- (CVBufferRef)_createPixelBufferForSize:(CGSize)size
+{
+	return %orig(CGSizeMake(size.width*qualityFactor, size.height*qualityFactor));
+}
+
+%end
+
+%hook PLCameraView
+
+- (void)cameraController:(id)controller didStartTransitionToShowEffectsGrid:(BOOL)showEffectsGrid animated:(BOOL)animated
+{
+	%orig;
+	if (AutoHideBB)
+		self._bottomBar.hidden = showEffectsGrid;
+}
+
+%end
+
+%hook PLEffectSelectionViewController
+
+- (void)setSelectedEffect:(CIFilter *)filter
+{
+	if (filter != nil) {
+		NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
+		for (NSUInteger i = 0; i < [filters count]; i++) {
+			if ([((CIFilter *)[filters objectAtIndex:i]).name isEqualToString:filter.name]) {
+				[self _setSelectedIndexPath:[NSIndexPath indexPathForItem:i inSection:1]];
+				return;
+			}
+		}
+		showFilterSelectionAlert(self);
+	} else
+		%orig;
+}
+
+%end
+
+%end
+
+%group iOS8
+
+%hook CAMEffectFilterManager
+
+- (CAMEffectFilterManager *)init
+{
+	CAMEffectFilterManager *manager = %orig;
+	addExtraSortedEffects(manager);
+	return manager;
+}
+
+%end
+
+%hook CAMEffectsGridView
+
+- (unsigned)_filterIndexForGridIndex:(unsigned)index
+{
+	if (!DisableNoneFilter)
+		return %orig;
+	return [self isBlackAndWhite] ? index + [[%c(CAMEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
+}
+
+- (unsigned)_gridIndexForFilterIndex:(unsigned)index
+{
+	if (!DisableNoneFilter)
+		return %orig;
+	return [self isBlackAndWhite] ? index - [[%c(CAMEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
+}
+
+- (unsigned)_cellsPerRow
+{
+	unsigned filterCount = (DisableNoneFilter ? 0 : 1) + [[%c(CAMEffectFilterManager) sharedInstance] filterCount];
+	if (filterCount <= 9)
+		return %orig;
+	if (filterCount <= 16)
+		return 4;
+	if (filterCount <= 25)
+		return 5;
+	if (filterCount <= 36)
+		return 6;
+	return %orig;
+}
+
+- (unsigned)_cellCount
+{
+	if (FillGrid)
+		return %orig;
+	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+	NSArray *enabledArray = (NSArray *)[prefDict objectForKey:ENABLED_EFFECT];
+	return enabledArray != nil ? (DisableNoneFilter ? 0 : 1) + [enabledArray count] : %orig;
+}
+
+%end
+
+%hook CAMCameraView
+
+- (void)cameraController:(id)controller didStartTransitionToShowEffectsGrid:(BOOL)showEffectsGrid animated:(BOOL)animated
+{
+	%orig;
+	if (AutoHideBB)
+		self._bottomBar.hidden = showEffectsGrid;
+}
+
+%end
+
+%hook CAMEffectSelectionViewController
+
+- (void)setSelectedEffect:(CIFilter *)filter
+{
+	if (filter != nil) {
+		NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
+		for (NSUInteger i = 0; i < [filters count]; i++) {
+			if ([((CIFilter *)[filters objectAtIndex:i]).name isEqualToString:filter.name]) {
+				[self _setSelectedIndexPath:[NSIndexPath indexPathForItem:i inSection:1]];
+				return;
+			}
+		}
+		showFilterSelectionAlert(self);
+	} else
+		%orig;
+}
+
+%end
 
 %end
 
@@ -889,6 +963,12 @@ static void PreferencesChangedCallback(CFNotificationCenterRef center, void *obs
 	EPLoader();
 	if (TweakEnabled) {
 		%init;
+		if (isiOS7) {
+			%init(iOS7);
+		}
+		else if (isiOS8) {
+			%init(iOS8);
+		}
 	}
 	[pool drain];
 }
