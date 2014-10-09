@@ -4,8 +4,8 @@ ARCHS = armv7 armv7s arm64
 
 BUNDLE_NAME = EffectsPlusPref
 EffectsPlusPref_FILES = Preferences.mm
-EffectsPlusPref_FRAMEWORKS = CoreGraphics UIKit
-EffectsPlusPref_PRIVATE_FRAMEWORKS = Preferences
+EffectsPlusPref_FRAMEWORKS = CoreGraphics Social UIKit
+EffectsPlusPref_PRIVATE_FRAMEWORKS = PhotoLibrary Preferences
 EffectsPlusPref_INSTALL_PATH = /Library/PreferenceBundles
 
 include ../theos/makefiles/common.mk

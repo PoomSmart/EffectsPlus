@@ -487,27 +487,21 @@
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Twirl - inputAngle (Degree)</string>
-		</dict>
-		<dict>
-			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus</string>
-			<key>cell</key>
-			<string>PSSliderCell</string>
+			<string>PSEditTextCell</string>
+			<key>id</key>
+			<string>CITwirlDistortion_inputAngle</string>
 			<key>default</key>
-			<real>180</real>
+			<string>3.14</string>
 			<key>defaults</key>
 			<string>com.PS.EffectsPlus</string>
 			<key>key</key>
 			<string>CITwirlDistortion_inputAngle</string>
-			<key>max</key>
-			<real>360</real>
-			<key>min</key>
-			<real>0</real>
-			<key>showValue</key>
-			<true/>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
+			<key>label</key>
+			<string>inputAngle</string>
+			<key>PostNotification</key>
+			<string>com.PS.EffectsPlus.prefs</string>
 		</dict>
 		
 		<dict>
@@ -685,6 +679,110 @@
 			<string>setInput:forSpecifier:</string>
 			<key>label</key>
 			<string>inputRadius</string>
+			<key>PostNotification</key>
+			<string>com.PS.EffectsPlus.prefs</string>
+		</dict>
+		
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Circular</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>id</key>
+			<string>CICircularScreen_inputWidth</string>
+			<key>default</key>
+			<string>6.00</string>
+			<key>defaults</key>
+			<string>com.PS.EffectsPlus</string>
+			<key>key</key>
+			<string>CICircularScreen_inputWidth</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
+			<key>label</key>
+			<string>inputWidth</string>
+			<key>PostNotification</key>
+			<string>com.PS.EffectsPlus.prefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>id</key>
+			<string>CICircularScreen_inputSharpness</string>
+			<key>default</key>
+			<string>0.70</string>
+			<key>defaults</key>
+			<string>com.PS.EffectsPlus</string>
+			<key>key</key>
+			<string>CICircularScreen_inputSharpness</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
+			<key>label</key>
+			<string>inputSharpness</string>
+			<key>PostNotification</key>
+			<string>com.PS.EffectsPlus.prefs</string>
+		</dict>
+		
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Line</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>id</key>
+			<string>CILineScreen_inputAngle</string>
+			<key>default</key>
+			<string>0.00</string>
+			<key>defaults</key>
+			<string>com.PS.EffectsPlus</string>
+			<key>key</key>
+			<string>CILineScreen_inputAngle</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
+			<key>label</key>
+			<string>inputAngle</string>
+			<key>PostNotification</key>
+			<string>com.PS.EffectsPlus.prefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>id</key>
+			<string>CILineScreen_inputWidth</string>
+			<key>default</key>
+			<string>6.00</string>
+			<key>defaults</key>
+			<string>com.PS.EffectsPlus</string>
+			<key>key</key>
+			<string>CILineScreen_inputWidth</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
+			<key>label</key>
+			<string>inputWidth</string>
+			<key>PostNotification</key>
+			<string>com.PS.EffectsPlus.prefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>id</key>
+			<string>CILineScreen_inputSharpness</string>
+			<key>default</key>
+			<string>0.70</string>
+			<key>defaults</key>
+			<string>com.PS.EffectsPlus</string>
+			<key>key</key>
+			<string>CILineScreen_inputSharpness</string>
+			<key>set</key>
+			<string>setInput:forSpecifier:</string>
+			<key>label</key>
+			<string>inputSharpness</string>
 			<key>PostNotification</key>
 			<string>com.PS.EffectsPlus.prefs</string>
 		</dict>

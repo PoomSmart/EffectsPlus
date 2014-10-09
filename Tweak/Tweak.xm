@@ -6,7 +6,6 @@
 static BOOL TweakEnabled;
 static BOOL FillGrid;
 static BOOL AutoHideBB;
-static BOOL DisableNoneFilter;
 
 static BOOL internalBlurHook = NO;
 static BOOL globalFilterHook = NO;
@@ -29,10 +28,12 @@ static float CIPinchDistortion_inputRadius, CIPinchDistortion_inputScale;
 static float CILightTunnel_inputRadius, CILightTunnel_inputRotation;
 static float CIHoleDistortion_inputRadius;
 static float CICircleSplashDistortion_inputRadius;
+static float CICircularScreen_inputWidth, CICircularScreen_inputSharpness;
+static float CILineScreen_inputAngle, CILineScreen_inputWidth, CILineScreen_inputSharpness;
 
 static float qualityFactor;
 
-//NSString * const anotherFilter = nil;
+static NSArray *enabledArray = nil;
 
 %hook CIImage
 
@@ -329,18 +330,52 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 
 %end
 
-/*%new
-- (void)setAnotherFilter:(NSString *)filter
+%hook CICircularScreen
+
++ (NSDictionary *)customAttributes
 {
-	objc_setAssociatedObject(self, anotherFilter, filter, OBJC_ASSOCIATION_COPY);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
- 
-%new
-- (NSString *)anotherFilter
+
+%end
+
+%hook CILineScreen
+
++ (NSDictionary *)customAttributes
 {
-	return objc_getAssociatedObject(self, anotherFilter);
+	return dictionaryByAddingSomeNativeValues(%orig);
 }
-*/
+
+%end
+
+@interface CINone : CIFilter {
+    CIImage *inputImage;
+}
+@property (retain, nonatomic) CIImage *inputImage;
+@end
+
+@implementation CINone
+@synthesize inputImage;
+
+- (CIImage *)outputImage
+{
+    return inputImage;
+}
+
+@end
+
+%hook CIFilter
+
++ (NSArray *)filterNamesInCategories:(NSArray *)categories
+{
+	NSMutableArray *orig = [%orig mutableCopy];
+	if (orig != nil) {
+		[orig addObject:@"CINone"];
+	}
+	return orig;
+}
+
+%end
 
 /*%hook PLEffectsGridLabelsView
 
@@ -429,6 +464,8 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 		[(CIFalseColor *)filter setInputColor0:[CIColor colorWithRed:CIFalseColor_R1 green:CIFalseColor_G1 blue:CIFalseColor_B1]];
 		[(CIFalseColor *)filter setInputColor1:[CIColor colorWithRed:CIFalseColor_R2 green:CIFalseColor_G2 blue:CIFalseColor_B2]];
 	}
+	else if ([filterName isEqualToString:@"CICircularScreen"])
+		[(CICircularScreen *)filter setInputCenter:globalCenter];
 }
 
 %hook PLCIFilterUtilities
@@ -444,18 +481,10 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 		if (![filter respondsToSelector:@selector(_outputProperties)])
 			effectCorrection(filter, extent, orientation);
 	}
-	/*CIFilter *anotherFilter = nil;
-	NSString *filter2 = filter1.anotherFilter;*/
-	//BOOL multiple = (filter2 != nil);
-	/*if (multiple) {
-		anotherFilter = [CIFilter filterWithName:filter2];
-		effectCorrection(anotherFilter, extent, orientation);
-	}*/
-	
-	/*multiple ? @[filter1, anotherFilter] : */
+
 	NSMutableArray *mutableFiltersArray = [filters mutableCopy];
 	if ([filters count] > 1) {
-		for (int i = 0; i < [filters count]; i++) {
+		for (NSUInteger i = 0; i < [filters count]; i++) {
 			if (![(CIFilter *)[mutableFiltersArray objectAtIndex:i] respondsToSelector:@selector(_outputProperties)]) {
 				if (i != 0) {
 					[mutableFiltersArray insertObject:[mutableFiltersArray objectAtIndex:i] atIndex:0];
@@ -497,49 +526,27 @@ static void configEffect(CIFilter *filter)
 	}
 	else if ([filterName isEqualToString:@"CILightTunnel"])
 		[(CILightTunnel *)filter setInputRotation:@(CILightTunnel_inputRotation)];
+	else if ([filterName isEqualToString:@"CICircularScreen"]) {
+		[(CICircularScreen *)filter setInputWidth:@(CICircularScreen_inputWidth)];
+		[(CICircularScreen *)filter setInputSharpness:@(CICircularScreen_inputSharpness)];
+	}
+	else if ([filterName isEqualToString:@"CILineScreen"]) {
+		[(CILineScreen *)filter setInputAngle:@(CILineScreen_inputAngle)];
+		[(CILineScreen *)filter setInputWidth:@(CILineScreen_inputWidth)];
+		[(CILineScreen *)filter setInputSharpness:@(CILineScreen_inputSharpness)];
+	}
 }
 
 static void _addCIEffect(NSString *displayName, NSString *filterName, NSObject *manager)
 {
 	if ([filterName hasPrefix:@"CIPhotoEffect"])
 		return;
-	CIFilter *filter1 = nil;
-	/*NSString *filter2 = nil;
-	NSCharacterSet *s = [NSCharacterSet characterSetWithCharactersInString:@"_"];
-	NSRange r = [filterName rangeOfCharacterFromSet:s];
-	if (r.location != NSNotFound) {
-		NSArray *effects = [filterName componentsSeparatedByString:@"_"];
-		filter1 = [CIFilter filterWithName:(NSString *)[effects objectAtIndex:0]];
-		filter2 = (NSString *)[effects objectAtIndex:1];
-	} else*/
-		filter1 = [CIFilter filterWithName:filterName];
-	//filter1.anotherFilter = filter2;
-	configEffect(filter1);
-	if (![MSHookIvar<NSMutableArray *>(manager, "_effects") containsObject:filter1])
-		[(id)manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter1];
+	CIFilter *filter = [CIFilter filterWithName:filterName];
+	if ([MSHookIvar<NSMutableArray *>(manager, "_effects") containsObject:filter])
+		return;
+	configEffect(filter);
+	[(id)manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
 }
-
-/*%hook PLEffectsGridView
-
-- (NSMutableArray *)filterIndices
-{
-	NSMutableArray *array = %orig;
-	if (array != nil) {
-		NSUInteger count = [array count];
-		for (unsigned int i=0;i<count;i++) {
-			NSNumber *number = [array objectAtIndex:i];
-			if ([number intValue] + 1 > count && count >= 9) {
-				NSObject *o = [[[array objectAtIndex:i] retain] autorelease];
-				[array removeObjectAtIndex:i];
-				[array insertObject:o atIndex:floor(count)/2];
-				break;
-			}
-		}
-	}
-	return array;
-}
-
-%end*/
 
 static void addExtraSortedEffects(NSObject *effectFilterManager)
 {
@@ -549,7 +556,7 @@ static void addExtraSortedEffects(NSObject *effectFilterManager)
 		NSArray *effects = [prefDict objectForKey:ENABLED_EFFECT];
 		if (effects == nil)
 			return;
-		for (int i = 0; i < [effects count]; i++) {
+		for (NSUInteger i = 0; i < [effects count]; i++) {
 			NSString *string = [effects objectAtIndex:i];
 			addCIEffect(string);
 		}
@@ -558,18 +565,18 @@ static void addExtraSortedEffects(NSObject *effectFilterManager)
 		NSMutableArray *allEffects = MSHookIvar<NSMutableArray *>(effectFilterManager, "_effects");
 		NSMutableArray *names = MSHookIvar<NSMutableArray *>(effectFilterManager, "_names");
 		NSMutableArray *aggdNames = MSHookIvar<NSMutableArray *>(effectFilterManager, "_aggdNames");
-		for (int i = 0; i < [allEffects count]; i++) {
+		for (NSUInteger i = 0; i < [allEffects count]; i++) {
 			NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
 									(CIFilter *)[allEffects objectAtIndex:i], @"Filter",
 									[names objectAtIndex:i], @"displayName",
 									[aggdNames objectAtIndex:i], @"aggdName", nil];
 			[array addObject:dict];
 		}
-		for (int i = 0; i < [effects count]; i++) {
+		for (NSUInteger i = 0; i < [effects count]; i++) {
 			NSString *string1 = [effects objectAtIndex:i];
 			NSString *string2 = ((CIFilter *)[[array objectAtIndex:i] objectForKey:@"Filter"]).name;
 			if (![string1 isEqualToString:string2]) {
-				for (int j = 0; j < [array count]; j++) {
+				for (NSUInteger j = 0; j < [array count]; j++) {
 					NSString *string3 = ((CIFilter *)[[array objectAtIndex:j] objectForKey:@"Filter"]).name;
 					if ([string3 isEqualToString:string1])
 						[array exchangeObjectAtIndex:i withObjectAtIndex:j];
@@ -579,8 +586,8 @@ static void addExtraSortedEffects(NSObject *effectFilterManager)
 		NSArray *disabledEffects = [prefDict objectForKey:DISABLED_EFFECT];
 		BOOL deleteSome = (disabledEffects != nil);
 		if (deleteSome) {
-			for (int i = 0; i < [disabledEffects count]; i++) {
-				for (int j = 0; j < [array count]; j++) {
+			for (NSUInteger i = 0; i < [disabledEffects count]; i++) {
+				for (NSUInteger j = 0; j < [array count]; j++) {
 					if ([((CIFilter *)[[array objectAtIndex:j] objectForKey:@"Filter"]).name isEqualToString:[disabledEffects objectAtIndex:i]])
 						[array removeObjectAtIndex:j];
 				}
@@ -588,19 +595,19 @@ static void addExtraSortedEffects(NSObject *effectFilterManager)
 		}
 			
 		NSMutableArray *a1 = [NSMutableArray array];
-		for (int i = 0; i < [array count]; i++) {
+		for (NSUInteger i = 0; i < [array count]; i++) {
 			[a1 addObject:[[array objectAtIndex:i] objectForKey:@"Filter"]];
 		}
 		[MSHookIvar<NSMutableArray *>(effectFilterManager, "_effects") setArray:a1];
 			
 		NSMutableArray *a2 = [NSMutableArray array];
-		for (int i = 0; i < [array count]; i++) {
+		for (NSUInteger i = 0; i < [array count]; i++) {
 			[a2 addObject:[[array objectAtIndex:i] objectForKey:@"displayName"]];
 		}
 		[MSHookIvar<NSMutableArray *>(effectFilterManager, "_names") setArray:a2];
 			
 		NSMutableArray *a3 = [NSMutableArray array];
-		for (int i = 0; i < [array count]; i++) {
+		for (NSUInteger i = 0; i < [array count]; i++) {
 			[a3 addObject:[[array objectAtIndex:i] objectForKey:@"aggdName"]];
 		}
 		[MSHookIvar<NSMutableArray *>(effectFilterManager, "_aggdNames") setArray:a3];
@@ -741,39 +748,35 @@ static PLProgressHUD *epHUD = nil;
 
 - (unsigned)_filterIndexForGridIndex:(unsigned)index
 {
-	if (!DisableNoneFilter)
-		return %orig;
 	return [self isBlackAndWhite] ? index + [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 }
 
 - (unsigned)_gridIndexForFilterIndex:(unsigned)index
 {
-	if (!DisableNoneFilter)
-		return %orig;
 	return [self isBlackAndWhite] ? index - [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 }
 
 - (unsigned)_cellsPerRow
 {
-	unsigned filterCount = (DisableNoneFilter ? 0 : 1) + [[%c(PLEffectFilterManager) sharedInstance] filterCount];
+	unsigned filterCount = [[%c(PLEffectFilterManager) sharedInstance] filterCount];
+	unsigned orig = %orig;
 	if (filterCount <= 9)
-		return %orig;
+		return orig;
 	if (filterCount <= 16)
 		return 4;
 	if (filterCount <= 25)
 		return 5;
 	if (filterCount <= 36)
 		return 6;
-	return %orig;
+	return orig;
 }
 
 - (unsigned)_cellCount
 {
+	unsigned orig = %orig;
 	if (FillGrid)
-		return %orig;
-	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
-	NSArray *enabledArray = (NSArray *)[prefDict objectForKey:ENABLED_EFFECT];
-	return enabledArray != nil ? (DisableNoneFilter ? 0 : 1) + [enabledArray count] : %orig;
+		return orig;
+	return enabledArray != nil ? [enabledArray count] : orig;
 }
 
 - (void)_updatePixelBufferPoolForSize:(CGSize)size
@@ -790,11 +793,29 @@ static PLProgressHUD *epHUD = nil;
 
 %hook PLCameraView
 
+- (void)_updateFilterButtonOnState
+{
+	%orig;
+	PLCameraController *cameraController = MSHookIvar<PLCameraController *>(self, "_cameraController");
+	CIFilter *currentFilter = [[%c(PLEffectFilterManager) sharedInstance] filterForIndex:[cameraController _activeFilterIndex]];
+	CAMFilterButton *filterButton = MSHookIvar<CAMFilterButton *>(self, "__filterButton");
+	BOOL shouldOn;
+	if (currentFilter == nil)
+		shouldOn = NO;
+	else
+		shouldOn = ![currentFilter.name isEqualToString:@"CINone"];
+	[filterButton setOn:shouldOn];
+}
+
 - (void)cameraController:(id)controller didStartTransitionToShowEffectsGrid:(BOOL)showEffectsGrid animated:(BOOL)animated
 {
 	%orig;
-	if (AutoHideBB)
-		self._bottomBar.hidden = showEffectsGrid;
+	if (AutoHideBB) {
+		if (self._bottomBar != nil)
+			self._bottomBar.hidden = showEffectsGrid;
+		if (self._topBar != nil)
+			self._topBar.hidden = showEffectsGrid;
+	}
 }
 
 %end
@@ -837,50 +858,64 @@ static PLProgressHUD *epHUD = nil;
 
 - (unsigned)_filterIndexForGridIndex:(unsigned)index
 {
-	if (!DisableNoneFilter)
-		return %orig;
 	return [self isBlackAndWhite] ? index + [[%c(CAMEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 }
 
 - (unsigned)_gridIndexForFilterIndex:(unsigned)index
 {
-	if (!DisableNoneFilter)
-		return %orig;
 	return [self isBlackAndWhite] ? index - [[%c(CAMEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 }
 
 - (unsigned)_cellsPerRow
 {
-	unsigned filterCount = (DisableNoneFilter ? 0 : 1) + [[%c(CAMEffectFilterManager) sharedInstance] filterCount];
+	unsigned filterCount = [[%c(CAMEffectFilterManager) sharedInstance] filterCount];
+	unsigned orig = %orig;
 	if (filterCount <= 9)
-		return %orig;
+		return orig;
 	if (filterCount <= 16)
 		return 4;
 	if (filterCount <= 25)
 		return 5;
 	if (filterCount <= 36)
 		return 6;
-	return %orig;
+	return orig;
 }
 
 - (unsigned)_cellCount
 {
+	unsigned orig = %orig;
 	if (FillGrid)
-		return %orig;
-	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
-	NSArray *enabledArray = (NSArray *)[prefDict objectForKey:ENABLED_EFFECT];
-	return enabledArray != nil ? (DisableNoneFilter ? 0 : 1) + [enabledArray count] : %orig;
+		return orig;
+	return enabledArray != nil ? [enabledArray count] : orig;
 }
 
 %end
 
 %hook CAMCameraView
 
+- (void)_updateFilterButtonOnState
+{
+	%orig;
+	CAMCaptureController *cameraController = MSHookIvar<CAMCaptureController *>(self, "_cameraController");
+	CIFilter *currentFilter = [[%c(CAMEffectFilterManager) sharedInstance] filterForIndex:[cameraController _activeFilterIndex]];
+	CAMFilterButton *filterButton = MSHookIvar<CAMFilterButton *>(self, "__filterButton");
+	BOOL shouldOn;
+	if (currentFilter == nil)
+		shouldOn = NO;
+	else
+		shouldOn = ![currentFilter.name isEqualToString:@"CINone"];
+	[filterButton setOn:shouldOn];
+}
+
 - (void)cameraController:(id)controller didStartTransitionToShowEffectsGrid:(BOOL)showEffectsGrid animated:(BOOL)animated
 {
 	%orig;
-	if (AutoHideBB)
-		self._bottomBar.hidden = showEffectsGrid;
+	if (AutoHideBB) {
+		if (self._bottomBar != nil)
+			self._bottomBar.hidden = showEffectsGrid;
+		if (self._topBar != nil)
+			self._topBar.hidden = showEffectsGrid;
+	}
 }
 
 %end
@@ -909,21 +944,21 @@ static PLProgressHUD *epHUD = nil;
 static void EPLoader()
 {
 	NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
-	TweakEnabled = [[dict objectForKey:@"Enabled"] boolValue];
-	FillGrid = [[dict objectForKey:@"FillGrid"] boolValue];
-	AutoHideBB = [[dict objectForKey:@"AutoHideBB"] boolValue];
-	DisableNoneFilter = [[dict objectForKey:@"DisableNoneFilter"] boolValue];
+	enabledArray = [[dict objectForKey:ENABLED_EFFECT] retain];
+	TweakEnabled = [dict[@"Enabled"] boolValue];
+	FillGrid = [dict[@"FillGrid"] boolValue];
+	AutoHideBB = [dict[@"AutoHideBB"] boolValue];
 	#define readFloat(val, defaultVal) \
-		val = [dict objectForKey:[NSString stringWithUTF8String:#val]] ? [[dict objectForKey:[NSString stringWithUTF8String:#val]] floatValue] : defaultVal;
-	readFloat(CIColorMonochrome_R, .5)
-	readFloat(CIColorMonochrome_G, .6)
-	readFloat(CIColorMonochrome_B, .7)
-	readFloat(CIFalseColor_R1, .2)
-	readFloat(CIFalseColor_G1, .3)
-	readFloat(CIFalseColor_B1, .5)
-	readFloat(CIFalseColor_R2, .6)
-	readFloat(CIFalseColor_G2, .8)
-	readFloat(CIFalseColor_B2, .9)
+		val = dict[[NSString stringWithUTF8String:#val]] ? [dict[[NSString stringWithUTF8String:#val]] floatValue] : defaultVal;
+	readFloat(CIColorMonochrome_R, 0.5)
+	readFloat(CIColorMonochrome_G, 0.6)
+	readFloat(CIColorMonochrome_B, 0.7)
+	readFloat(CIFalseColor_R1, 0.2)
+	readFloat(CIFalseColor_G1, 0.3)
+	readFloat(CIFalseColor_B1, 0.5)
+	readFloat(CIFalseColor_R2, 0.6)
+	readFloat(CIFalseColor_G2, 0.8)
+	readFloat(CIFalseColor_B2, 0.9)
 	readFloat(CISepiaTone_inputIntensity, 1)
 	readFloat(CIVibrance_inputAmount, 1)
 	readFloat(CIColorMonochrome_inputIntensity, 1)
@@ -937,15 +972,19 @@ static void EPLoader()
 	readFloat(CIGaussianBlur_inputRadius, 10)
 	readFloat(CITwirlDistortion_inputRadius, 200)
 	readFloat(CITwirlDistortion_inputAngle, 3.14)
-	CITwirlDistortion_inputAngle *= M_PI/180;
 	readFloat(CITriangleKaleidoscope_inputSize, 300)
-	readFloat(CITriangleKaleidoscope_inputDecay, .85)
+	readFloat(CITriangleKaleidoscope_inputDecay, 0.85)
 	readFloat(CIPinchDistortion_inputRadius, 200)
-	readFloat(CIPinchDistortion_inputScale, .5)
+	readFloat(CIPinchDistortion_inputScale, 0.5)
 	readFloat(CILightTunnel_inputRadius, 90)
 	readFloat(CILightTunnel_inputRotation, 0)
 	readFloat(CIHoleDistortion_inputRadius, 150)
 	readFloat(CICircleSplashDistortion_inputRadius, 150)
+	readFloat(CICircularScreen_inputWidth, 6)
+	readFloat(CICircularScreen_inputSharpness, 0.7);
+	readFloat(CILineScreen_inputAngle, 0)
+	readFloat(CILineScreen_inputWidth, 6)
+	readFloat(CILineScreen_inputSharpness, 0.7);
 	
 	readFloat(qualityFactor, 1)
 }

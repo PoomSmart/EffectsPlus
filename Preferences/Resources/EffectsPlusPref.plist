@@ -115,9 +115,9 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Auto Hide Bottom Bar</string>
+			<string>Auto Hide Bars</string>
 			<key>footerText</key>
-			<string>When there are many filters, the bottom bar could shade the filters. Enable this to fix that issue.</string>
+			<string>When there are many filters, the camera bars could shade the filters. Enable this to fix that issue.</string>
 		</dict>
 		<dict>
         	<key>cell</key>
@@ -134,51 +134,47 @@
         	<string>com.PS.EffectsPlus.prefs</string>
       </dict>
       <dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Remove the None filter</string>
-			<key>footerText</key>
-			<string>The empty filter with its name "none", you can remove that.</string>
-		</dict>
-		<dict>
-        	<key>cell</key>
-        	<string>PSSwitchCell</string>
-       		<key>default</key>
-        	<false/>
-        	<key>defaults</key>
-        	<string>com.PS.EffectsPlus</string>
-        	<key>key</key>
-        	<string>DisableNoneFilter</string>
-        	<key>label</key>
-        	<string>Enabled</string>
-        	<key>PostNotification</key>
-        	<string>com.PS.EffectsPlus.prefs</string>
-      </dict>
-      <dict>
       		<key>cell</key>
       		<string>PSGroupCell</string>
       </dict>
       <dict>
       		<key>cell</key>
       		<string>PSButtonCell</string>
+      		<key>alignment</key>
+      		<integer>1</integer>
       		<key>action</key>
       		<string>donate:</string>
       		<key>label</key>
-      		<string>Donate</string>
+      		<string>♥ Donate</string>
+      </dict>
+      <dict>
+      		<key>cell</key>
+      		<string>PSButtonCell</string>
+      		<key>alignment</key>
+      		<integer>1</integer>
+      		<key>action</key>
+      		<string>twitter:</string>
+      		<key>label</key>
+      		<string>🔗 Developer's Twitter</string>
       </dict>
       <dict>
         <key>cell</key>
         <string>PSGroupCell</string>
+        <key>label</key>
+        <string>Developer's notes</string>
         <key>footerText</key>
-        <string>Developer's notes
-• Multiple filters at once is possible, but not implemented yet. I'm working on this.
-• There are no way to reposition the non-filter view in filters list (in the middle with tweak disabled) in camera app yet.
+        <string>• Multiple filters at once is possible, but not implemented yet. I'm working on this.
 • Mirrors (Filter) should not be applied in large images, too large image size causes system unable to handle it.
 • The exported images may not have filter applied for some services, such as iPhoto. But some common services eg. Facebook, Instagram or Twitter does work.
-• The best way to get images with filters applied is saving to the new image, you can do this directly using Save button at top-right of the photo editor view. ("Default" for default saving, "As a new image" for the another image, and "Keep adjustments (N)" for the another image, but keep some image settings)
-   
-© 2013 - 2014 Thuchapol Unprasert
+• The best way to get images with filters applied is saving to the new image, you can do this directly using Save button at top-right of the photo editor view. ("Default" for default saving, "As a new image" for the another image, and "Keep adjustments (N)" for the another image, but keep some image settings)</string>
+      </dict>
+      <dict>
+        <key>cell</key>
+        <string>PSGroupCell</string>
+        <key>footerAlignment</key>
+        <integer>1</integer>
+        <key>footerText</key>
+        <string>© 2013 - 2014 Thuchapol Unprasert
 (@PoomSmart)</string>
       </dict>
     </array>

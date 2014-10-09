@@ -4,7 +4,7 @@
 #define PreferencesChangedNotification "com.PS.EffectsPlus.prefs"
 #define kFontSize 14
 #define NORMAL_EFFECT_COUNT 8
-#define EXTRA_EFFECT_COUNT 23
+#define EXTRA_EFFECT_COUNT 25
 static const NSString *ENABLED_EFFECT = @"EnabledEffects";
 static const NSString *DISABLED_EFFECT = @"DisabledEffects";
 
@@ -121,10 +121,23 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 @property(retain, nonatomic) NSNumber *inputRadius;
 @end
 
+@interface CICircularScreen : CIFilter
+@property(retain, nonatomic) CIVector *inputCenter;
+@property(retain, nonatomic) NSNumber *inputWidth;
+@property(retain, nonatomic) NSNumber *inputSharpness;
+@end
+
+@interface CILineScreen : CIFilter
+@property(retain, nonatomic) NSNumber *inputAngle;
+@property(retain, nonatomic) NSNumber *inputWidth;
+@property(retain, nonatomic) NSNumber *inputSharpness;
+@end
+
 @interface PLEffectFilterManager : NSObject
 + (PLEffectFilterManager *)sharedInstance;
 - (unsigned)blackAndWhiteFilterStartIndex;
 - (unsigned)filterCount;
+- (CIFilter *)filterForIndex:(unsigned)index;
 - (void)_addEffectNamed:(NSString *)name aggdName:(NSString *)aggdName filter:(CIFilter *)filter;
 @end
 
@@ -132,6 +145,7 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 + (CAMEffectFilterManager *)sharedInstance;
 - (unsigned)blackAndWhiteFilterStartIndex;
 - (unsigned)filterCount;
+- (CIFilter *)filterForIndex:(unsigned)index;
 - (void)_addEffectNamed:(NSString *)name aggdName:(NSString *)aggdName filter:(CIFilter *)filter;
 @end
 
@@ -158,14 +172,19 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 - (void)setEditedImage:(UIImage *)image;
 @end
 
-@interface CAMBottomBar : UIToolbar
+@interface CAMTopBar : UIControl
+@end
+
+@interface CAMBottomBar : UIControl
 @end
 
 @interface PLCameraView : UIView
+@property(readonly, assign, nonatomic) CAMTopBar *_topBar;
 @property(readonly, assign, nonatomic) CAMBottomBar *_bottomBar;
 @end
 
 @interface CAMCameraView : UIView
+@property(readonly, assign, nonatomic) CAMTopBar *_topBar;
 @property(readonly, assign, nonatomic) CAMBottomBar *_bottomBar;
 @end
 
@@ -194,11 +213,17 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 @interface PLCameraController
 + (PLCameraController *)sharedInstance;
 - (BOOL)isReady;
+- (unsigned)_activeFilterIndex;
 @end
 
 @interface CAMCaptureController
 + (CAMCaptureController *)sharedInstance;
 - (BOOL)isReady;
+- (unsigned)_activeFilterIndex;
+@end
+
+@interface CAMFilterButton
+- (void)setOn:(BOOL)on;
 @end
 
 @interface PLProgressHUD : UIView
@@ -216,21 +241,19 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 + (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)inputImage orientation:(UIImageOrientation)orientation copyFiltersFirst:(BOOL)copyFirst;
 @end
 
-@interface UIImage (Addition)
-+ (UIImage *)imageNamed:(NSString *)name inBundle:(NSBundle *)bundle;
-@end
-
 static NSString *displayNameFromCIFilterName(NSString *name)
 {
-	#define EPReturn(name1, name2) if ([name isEqualToString:name2]) return name1
-	EPReturn(@"Mono", @"CIPhotoEffectMono");
-	EPReturn(@"Noir", @"CIPhotoEffectNoir");
-	EPReturn(@"Fade", @"CIPhotoEffectFade");
-	EPReturn(@"Chrome", @"CIPhotoEffectChrome");
-	EPReturn(@"Process", @"CIPhotoEffectProcess");
-	EPReturn(@"Transfer", @"CIPhotoEffectTransfer");
-	EPReturn(@"Instant", @"CIPhotoEffectInstant");
-	EPReturn(@"Tonal", @"CIPhotoEffectTonal");
+	#define EPReturn1(name1, name2) if ([name isEqualToString:name2]) return name1
+	#define EPReturn(name3, name4) else if ([name isEqualToString:name4]) return name3
+	EPReturn1(PLLocalizedFrameworkString(@"FILTER_MONO", nil), @"CIPhotoEffectMono");
+	EPReturn(PLLocalizedFrameworkString(@"FILTER_NOIR", nil), @"CIPhotoEffectNoir");
+	EPReturn(PLLocalizedFrameworkString(@"FILTER_FADE", nil), @"CIPhotoEffectFade");
+	EPReturn(PLLocalizedFrameworkString(@"FILTER_CHROME", nil), @"CIPhotoEffectChrome");
+	EPReturn(PLLocalizedFrameworkString(@"FILTER_NONE", nil), @"CINone");
+	EPReturn(PLLocalizedFrameworkString(@"FILTER_PROCESS", nil), @"CIPhotoEffectProcess");
+	EPReturn(PLLocalizedFrameworkString(@"FILTER_TRANSFER", nil), @"CIPhotoEffectTransfer");
+	EPReturn(PLLocalizedFrameworkString(@"FILTER_INSTANT", nil), @"CIPhotoEffectInstant");
+	EPReturn(PLLocalizedFrameworkString(@"FILTER_TONAL", nil), @"CIPhotoEffectTonal");
 	
 	EPReturn(@"Sepia", @"CISepiaTone");
 	EPReturn(@"Vibrance", @"CIVibrance");
@@ -247,6 +270,9 @@ static NSString *displayNameFromCIFilterName(NSString *name)
 	EPReturn(@"Hole", @"CIHoleDistortion");
 	EPReturn(@"Twirl", @"CITwirlDistortion");
 	EPReturn(@"Circle", @"CICircleSplashDistortion");
+	EPReturn(@"Circular", @"CICircularScreen");
+	EPReturn(@"Line", @"CILineScreen");
+	
 	EPReturn(@"X-Ray", @"CIXRay");
 	EPReturn(@"Mirrors", @"CIWrapMirror");
 	EPReturn(@"Stretch", @"CIStretch");
@@ -255,6 +281,5 @@ static NSString *displayNameFromCIFilterName(NSString *name)
 	EPReturn(@"Squeeze", @"CIPinchDistortion");
 	EPReturn(@"Thermal", @"CIThermal");
 	EPReturn(@"Light Tunnel", @"CILightTunnel");
-	//EPReturn(@"Bloom + Thermal", @"CIBloom_CIThermal");
 	return @"";
 }

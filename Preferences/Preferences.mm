@@ -4,13 +4,15 @@
 #import <Preferences/PSListController.h>
 #import <Preferences/PSSpecifier.h>
 #import <Preferences/PSTableCell.h>
+#import <Social/Social.h>
 #import <notify.h>
 
 #include <objc/runtime.h>
 #include <sys/sysctl.h>
 
+#define fitColor [UIColor systemBlueColor]
+
 @interface PSViewController (EffectsPlus)
-- (void)setView:(id)view;
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath;
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section;
 - (void)viewDidLoad;
@@ -35,6 +37,11 @@
 }
 @end
 
+static NSBundle *epBundle()
+{
+	return [NSBundle bundleWithPath:@"/Library/PreferenceBundles/EffectsPlusPref.bundle"];
+}
+
 @implementation EffectsPlusFiltersSelectionController
 
 - (NSString *)title
@@ -52,6 +59,7 @@
 	NSMutableArray *array = [NSMutableArray array];
 	[array addObject:@"CIPhotoEffectMono"]; [array addObject:@"CIPhotoEffectTonal"];
 	[array addObject:@"CIPhotoEffectNoir"]; [array addObject:@"CIPhotoEffectFade"];
+	[array addObject:@"CINone"];
 	[array addObject:@"CIPhotoEffectChrome"]; [array addObject:@"CIPhotoEffectProcess"];
 	[array addObject:@"CIPhotoEffectTransfer"];	[array addObject:@"CIPhotoEffectInstant"];
 	return array;
@@ -67,24 +75,32 @@
 	return array;
 }
 
-- (NSMutableArray *)arrayByAddingExternal
+- (NSMutableArray *)arrayByAddingExternal1
 {
 	NSMutableArray *array = [NSMutableArray array];
 	[array addObject:@"CISepiaTone"]; [array addObject:@"CIVibrance"];
 	[array addObject:@"CIColorMonochrome"]; [array addObject:@"CIColorPosterize"];
 	[array addObject:@"CIGloom"]; [array addObject:@"CIBloom"];
 	[array addObject:@"CISharpenLuminance"]; [array addObject:@"CILinearToSRGBToneCurve"];
-	[array addObject:@"CIPixellate"]; [array addObject:@"CIGaussianBlur"];
-	[array addObject:@"CIFalseColor"]; [array addObject:@"CIWrapMirror"];
-	[array addObject:@"CIColorInvert"]; [array addObject:@"CIHoleDistortion"];
-	[array addObject:@"CICircleSplashDistortion"];
+	[array addObject:@"CIPixellate"];
+	return array;
+}
+
+- (NSMutableArray *)arrayByAddingExternal2
+{
+	NSMutableArray *array = [NSMutableArray array];
+	[array addObject:@"CIGaussianBlur"]; [array addObject:@"CIFalseColor"];
+	[array addObject:@"CIWrapMirror"]; [array addObject:@"CIColorInvert"];
+	[array addObject:@"CIHoleDistortion"]; [array addObject:@"CICircleSplashDistortion"];
+	[array addObject:@"CICircularScreen"]; [array addObject:@"CILineScreen"];
 	return array;
 }
 
 - (NSMutableArray *)arrayByAddingExtras
 {
 	NSMutableArray *array = [NSMutableArray array];
-	[array addObjectsFromArray:[self arrayByAddingExternal]];
+	[array addObjectsFromArray:[self arrayByAddingExternal1]];
+	[array addObjectsFromArray:[self arrayByAddingExternal2]];
 	[array addObjectsFromArray:[self arrayByAddingPhotoBooths]];
 	return array;
 }
@@ -95,7 +111,9 @@
 		@"Default",
 		@"Enable All",
 		@"Disable All",
-		@"All Photo Booth Enabled",
+		@"Photo Booth",
+		@"Extra Set #1",
+		@"Extra Set #2",
 		@"All Extra Enabled",
 		nil];
 	sheet.tag = 9596;
@@ -124,17 +142,41 @@
 				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingPhotoBooths]];
 				NSMutableArray *array3 = [NSMutableArray array];
 				[array3 addObjectsFromArray:[self arrayByAddingDefaults]];
-				[array3 addObjectsFromArray:[self arrayByAddingExternal]];
+				[array3 addObjectsFromArray:[self arrayByAddingExternal1]];
+				[array3 addObjectsFromArray:[self arrayByAddingExternal2]];
 				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array3];
 				break;
 			}
 			case 4:
 			{
-				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExternal]];
+				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExternal1]];
 				NSMutableArray *array4 = [NSMutableArray array];
 				[array4 addObjectsFromArray:[self arrayByAddingDefaults]];
 				[array4 addObjectsFromArray:[self arrayByAddingPhotoBooths]];
+				[array4 addObjectsFromArray:[self arrayByAddingExternal2]];
 				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array4];
+				break;
+			}
+			case 5:
+			{
+				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExternal2]];
+				NSMutableArray *array5 = [NSMutableArray array];
+				[array5 addObjectsFromArray:[self arrayByAddingDefaults]];
+				[array5 addObjectsFromArray:[self arrayByAddingPhotoBooths]];
+				[array5 addObjectsFromArray:[self arrayByAddingExternal1]];
+				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array5];
+				break;
+			}
+			case 6:
+			{
+				NSMutableArray *array6 = [NSMutableArray array];
+				[array6 addObjectsFromArray:[self arrayByAddingExternal1]];
+				[array6 addObjectsFromArray:[self arrayByAddingExternal2]];
+				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:array6];
+				NSMutableArray *array7 = [NSMutableArray array];
+				[array7 addObjectsFromArray:[self arrayByAddingDefaults]];
+				[array7 addObjectsFromArray:[self arrayByAddingPhotoBooths]];
+				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array7];
 				break;
 			}
 		}
@@ -145,12 +187,29 @@
 		[super actionSheet:popup clickedButtonAtIndex:buttonIndex];
 }
 
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath
+{
+	for (UIView *viewThree in cell.subviews) {
+		if ([[[viewThree class] description] isEqualToString:@"UITableViewCellScrollView"]) {
+			for (UIView *viewFour in viewThree.subviews) {
+				if ([[[viewFour class] description] isEqualToString:@"UITableViewCellReorderControl"]) {
+					for (UIImageView *viewFive in viewFour.subviews) {
+						UIImage *defaultIcon = viewFive.image;
+						viewFive.image = [defaultIcon _flatImageWithColor:[UIColor blackColor]];
+					}
+				}
+			}
+		}
+	}
+}
+
 - (void)viewDidLoad
 {
 	[super viewDidLoad];
 	[self.tableView setAllowsSelectionDuringEditing:YES];
-    [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:@"EffectCell"];
-    [self.tableView setEditing:YES];
+	[self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:@"EffectCell"];
+	[self.tableView setEditing:YES];
+	//[self changeReorderColor];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
@@ -225,6 +284,11 @@
 	[self saveSettings];
 }
 
+- (void)tableView:(UITableView *)tableView didEndReorderingRowAtIndexPath:(NSIndexPath *)indexPath
+{
+	[self updateFilterNameColor];
+}
+
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath
 {
 	return UITableViewCellEditingStyleNone;
@@ -264,6 +328,26 @@
 	self.view = tableView;
 }
 
+- (void)updateFilterNameColor
+{
+	NSMutableArray *enabledIndexArray = [NSMutableArray array];
+	NSUInteger enabledIndexCount = [self.tableView numberOfRowsInSection:0];
+	for (NSUInteger i = 0; i < enabledIndexCount; i++) {
+		NSIndexPath *enabledIndexPath = [NSIndexPath indexPathForRow:i inSection:0];
+		[enabledIndexArray addObject:enabledIndexPath];
+		UITableViewCell *enabledCell = [self.tableView cellForRowAtIndexPath:enabledIndexPath];
+		enabledCell.textLabel.textColor = enabledIndexCount == 9 ? fitColor : [UIColor blackColor];
+	}
+	NSMutableArray *disabledIndexArray = [NSMutableArray array];
+	NSUInteger disabledIndexCount =  [self.tableView numberOfRowsInSection:1];
+	for (NSUInteger i = 0; i < disabledIndexCount; i++) {
+		NSIndexPath *disabledIndexPath = [NSIndexPath indexPathForRow:i inSection:1];
+		[disabledIndexArray addObject:disabledIndexPath];
+		UITableViewCell *disabledCell = [self.tableView cellForRowAtIndexPath:disabledIndexPath];
+		disabledCell.textLabel.textColor = [UIColor blackColor];
+	}
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
 	static NSString *const CellIdentifier = [NSString stringWithFormat:@"eff %ld", (long)indexPath.row];
@@ -274,17 +358,19 @@
 	NSBundle *plBundle = [NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/PhotoLibrary.framework"];
 	UIImage *FilterOn = [UIImage imageNamed:@"CAMFilterButtonOn" inBundle:plBundle];
 	UIImage *Filter = [UIImage imageNamed:@"CAMFilterButton" inBundle:plBundle];
-	UIImage *PB = [UIImage imageNamed:@"PB" inBundle:[NSBundle bundleWithPath:@"/Library/PreferenceBundles/EffectsPlusPref.bundle"]];
+	UIImage *PB = [UIImage imageNamed:@"PB" inBundle:epBundle()];
 	
 	if (cell == nil) {
 		cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:CellIdentifier] autorelease];
 		[cell.textLabel setNumberOfLines:1];
 		[cell.textLabel setBackgroundColor:[UIColor clearColor]];
+		cell.textLabel.textColor = [UIColor blackColor];
 	}
 
 	BOOL index0 = indexPath.section == 0;
 	NSMutableOrderedSet *effectDict = index0 ? _enabledEffects : _disabledEffects;
-	unsigned filterCount = effectDict.count;
+	NSUInteger filterCount = effectDict.count;
+	cell.textLabel.textColor = _enabledEffects.count == 9 && index0 ? fitColor : [UIColor blackColor];
 	if (filterCount - 1 >= indexPath.row) {
 		NSString *effectName = [effectDict objectAtIndex:indexPath.row];
 		[cell.textLabel setText:displayNameFromCIFilterName(effectName)];
@@ -323,19 +409,11 @@
 	[[super view] endEditing:YES];
 }
 
-- (void)addBtn
+- (id)init
 {
-	UIBarButtonItem *hideKBBtn = [[UIBarButtonItem alloc]
-        initWithTitle:@"⏬" style:UIBarButtonItemStyleBordered
-        target:self action:@selector(hideKeyboard)];
-	((UINavigationItem *)[super navigationItem]).rightBarButtonItem = hideKBBtn;
-	[hideKBBtn release];
-}
-
-- (void)viewWillAppear:(BOOL)animated
-{
-	[super viewWillAppear:animated];
-	[self addBtn];
+	if (self == [super init])
+		self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithTitle:@"⏬" style:UIBarButtonItemStyleBordered target:self action:@selector(hideKeyboard)] autorelease];
+	return self;
 }
 
 - (void)setInput:(id)value forSpecifier:(PSSpecifier *)spec
@@ -374,10 +452,35 @@
 	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:PS_DONATE_URL]];
 }
 
+- (void)twitter:(id)param
+{
+	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:PS_TWITTER_URL]];
+}
+
+- (void)love
+{
+	SLComposeViewController *twitter = [[SLComposeViewController composeViewControllerForServiceType:SLServiceTypeTwitter] retain];
+	[twitter setInitialText:@"#EffectsPlus by @PoomSmart is awesome!"];
+	if (twitter != nil)
+		[[self navigationController] presentViewController:twitter animated:YES completion:nil];
+}
+
+- (id)init
+{
+	if (self == [super init]) {
+		UIButton *heart = [[[UIButton alloc] initWithFrame:CGRectZero] autorelease];
+		[heart setImage:[UIImage imageNamed:@"Heart" inBundle:epBundle()] forState:UIControlStateNormal];
+		[heart sizeToFit];
+		[heart addTarget:self action:@selector(love) forControlEvents:UIControlEventTouchUpInside];
+		self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithCustomView:heart] autorelease];
+	}
+	return self;
+}
+
 - (NSArray *)specifiers
 {
 	if (_specifiers == nil) {
-		NSMutableArray *specs = [NSMutableArray arrayWithArray:[self loadSpecifiersFromPlistName:@"EffectsPlusPref" target:self]];			
+		NSMutableArray *specs = [[NSMutableArray arrayWithArray:[self loadSpecifiersFromPlistName:@"EffectsPlusPref" target:self]] retain];			
 		_specifiers = [specs copy];
   	}
 	return _specifiers;
