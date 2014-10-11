@@ -30,8 +30,10 @@ static float CIHoleDistortion_inputRadius;
 static float CICircleSplashDistortion_inputRadius;
 static float CICircularScreen_inputWidth, CICircularScreen_inputSharpness;
 static float CILineScreen_inputAngle, CILineScreen_inputWidth, CILineScreen_inputSharpness;
+static float CIMirror_inputAngle;
 
 static float qualityFactor;
+static int mode = 1;
 
 static NSArray *enabledArray = nil;
 
@@ -71,7 +73,32 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 	return (NSDictionary *)mutableInputDict;
 }
 
+@interface CINone : CIFilter {
+    CIImage *inputImage;
+}
+@property (retain, nonatomic) CIImage *inputImage;
+@end
+
+@implementation CINone
+@synthesize inputImage;
+
+- (CIImage *)outputImage
+{
+    return inputImage;
+}
+
+@end
+
 %hook CIFilter
+
++ (NSArray *)filterNamesInCategories:(NSArray *)categories
+{
+	NSMutableArray *orig = [%orig mutableCopy];
+	if (orig != nil) {
+		[orig addObject:CINoneName];
+	}
+	return orig;
+}
 
 - (NSString *)_serializedXMPString
 {
@@ -348,35 +375,6 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 
 %end
 
-@interface CINone : CIFilter {
-    CIImage *inputImage;
-}
-@property (retain, nonatomic) CIImage *inputImage;
-@end
-
-@implementation CINone
-@synthesize inputImage;
-
-- (CIImage *)outputImage
-{
-    return inputImage;
-}
-
-@end
-
-%hook CIFilter
-
-+ (NSArray *)filterNamesInCategories:(NSArray *)categories
-{
-	NSMutableArray *orig = [%orig mutableCopy];
-	if (orig != nil) {
-		[orig addObject:@"CINone"];
-	}
-	return orig;
-}
-
-%end
-
 /*%hook PLEffectsGridLabelsView
 
 - (void)_replaceLabelViews:(id)view
@@ -414,10 +412,7 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 	#define valueCorrection(value) @((extent.size.width/640)*value)
 	if ([filterName isEqualToString:@"CIMirror"]) {
 		[(CIMirror *)filter setInputPoint:normalHalfExtent];
-		[(CIMirror *)filter setInputAngle:@(1.5*M_PI)];
-		Class Controller = isiOS8 ? %c(CAMCaptureController) : %c(PLCameraController);
-		if (![(id)[Controller sharedInstance] isReady])
-			[(CIMirror *)filter setInputAngle:@(-2*M_PI)];
+		[(CIMirror *)filter setInputAngle:@(1.5*M_PI + CIMirror_inputAngle)];
 	}
 	else if ([filterName isEqualToString:@"CITriangleKaleidoscope"]) {
 		[(CITriangleKaleidoscope *)filter setInputPoint:normalHalfExtent];
@@ -464,8 +459,12 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 		[(CIFalseColor *)filter setInputColor0:[CIColor colorWithRed:CIFalseColor_R1 green:CIFalseColor_G1 blue:CIFalseColor_B1]];
 		[(CIFalseColor *)filter setInputColor1:[CIColor colorWithRed:CIFalseColor_R2 green:CIFalseColor_G2 blue:CIFalseColor_B2]];
 	}
-	else if ([filterName isEqualToString:@"CICircularScreen"])
+	else if ([filterName isEqualToString:@"CICircularScreen"]) {
 		[(CICircularScreen *)filter setInputCenter:globalCenter];
+		[(CICircularScreen *)filter setInputWidth:valueCorrection(CICircularScreen_inputWidth)];
+	}
+	else if ([filterName isEqualToString:@"CILineScreen"])
+		[(CILineScreen *)filter setInputWidth:valueCorrection(CILineScreen_inputWidth)];
 }
 
 %hook PLCIFilterUtilities
@@ -532,7 +531,6 @@ static void configEffect(CIFilter *filter)
 	}
 	else if ([filterName isEqualToString:@"CILineScreen"]) {
 		[(CILineScreen *)filter setInputAngle:@(CILineScreen_inputAngle)];
-		[(CILineScreen *)filter setInputWidth:@(CILineScreen_inputWidth)];
 		[(CILineScreen *)filter setInputSharpness:@(CILineScreen_inputSharpness)];
 	}
 }
@@ -542,10 +540,10 @@ static void _addCIEffect(NSString *displayName, NSString *filterName, NSObject *
 	if ([filterName hasPrefix:@"CIPhotoEffect"])
 		return;
 	CIFilter *filter = [CIFilter filterWithName:filterName];
-	if ([MSHookIvar<NSMutableArray *>(manager, "_effects") containsObject:filter])
-		return;
-	configEffect(filter);
-	[(id)manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
+	if (![MSHookIvar<NSMutableArray *>(manager, "_effects") containsObject:filter]) {
+		configEffect(filter);
+		[(id)manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
+	}
 }
 
 static void addExtraSortedEffects(NSObject *effectFilterManager)
@@ -553,7 +551,7 @@ static void addExtraSortedEffects(NSObject *effectFilterManager)
 	#define addCIEffect(arg) _addCIEffect(displayNameFromCIFilterName(arg), arg, effectFilterManager)
 	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 	if (prefDict != nil) {
-		NSArray *effects = [prefDict objectForKey:ENABLED_EFFECT];
+		NSMutableArray *effects = [[prefDict objectForKey:ENABLED_EFFECT] mutableCopy];
 		if (effects == nil)
 			return;
 		for (NSUInteger i = 0; i < [effects count]; i++) {
@@ -640,34 +638,44 @@ static PLProgressHUD *epHUD = nil;
 %hook PLEditPhotoController
 
 %new
+- (void)ep_save:(int)mode
+{
+	switch (mode) {
+		case 2:
+			[self save:nil];
+			break;
+		case 3:
+			[self _setControlsEnabled:NO animated:NO];
+			epHUD = [[PLProgressHUD alloc] init];
+			[epHUD setText:PLLocalizedFrameworkString(@"SAVING_PHOTO", nil)];
+			[epHUD showInView:self.view];
+			[self EPSavePhoto];
+			break;
+		case 4:
+			MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = YES;
+			[self saveAdjustments];
+			MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = NO;
+			break;
+	}
+}
+
+%new
 - (void)ep_showOptions
 {
-	UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"Select saving options" delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:nil otherButtonTitles:@"Default", @"As a new image", @"Keep adjustments (N)", nil];
-	sheet.tag = 9598;
-	[sheet showInView:self.view];
-	[sheet release];
+	if (mode == 1) {
+		UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"Select saving options" delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:nil otherButtonTitles:@"Default", @"New image", @"New image (w/ adjustments)", nil];
+		sheet.tag = 9598;
+		[sheet showInView:self.view];
+		[sheet release];
+	} else
+		[self ep_save:mode];
 }
 
 - (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex
 {
 	if (popup.tag == 9598) {
-		switch (buttonIndex) {
-			case 0:
-				[self save:nil];
-				break;
-			case 1:
-				[self _setControlsEnabled:NO animated:NO];
-				epHUD = [[PLProgressHUD alloc] init];
-				[epHUD setText:PLLocalizedFrameworkString(@"SAVING_PHOTO", nil)];
-				[epHUD showInView:self.view];
-				[self EPSavePhoto];
-				break;
-			case 2:
-				MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = YES;
-				[self saveAdjustments];
-				MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = NO;
-				break;
-		}
+		int mode = buttonIndex + 1;
+		[self ep_save:mode];
 	} else
 		%orig;
 }
@@ -681,10 +689,11 @@ static PLProgressHUD *epHUD = nil;
 	NSMutableArray *effectFilters = [[self _currentNonGeometryFiltersWithEffectFilters:MSHookIvar<NSArray *>(self, "_effectFilters")] mutableCopy];
 	CIImage *ciImage = [self _newCIImageFromUIImage:actualImage];
 	
-	// Fixing image orientation, still dirt
+	// Fixing image orientation, still dirt (?)
 	int orientation = 1;
 	float rotation = MSHookIvar<float>(self, "_rotationAngle");
 	float angle = rotation;
+	
 	if (angle > 6)
 		angle = fmodf(rotation, 6.28319);
 	if (round(abs(angle)) == 3)
@@ -693,18 +702,6 @@ static PLProgressHUD *epHUD = nil;
 		orientation = 8;
 	else if (round(angle) == 5 || (round(angle) == -2 && angle < 0))
 		orientation = 6;
-		
-	// There is a function that may does the job above. Anyway, it doesn't work on arm64 and looks like it always returns orientation 6
-	/*#define PhotoLibrary "/System/Library/PrivateFrameworks/PhotoLibrary.framework/PhotoLibrary"
-	if (dlopen(PhotoLibrary, RTLD_LAZY) != NULL) {
-		int (*_orientationFromAngle)(float);
-		struct nlist nl[2];
-		memset(nl, 0, sizeof(nl));
-		nl[0].n_un.n_name = (char *)"_orientationFromAngle";
-		nlist(PhotoLibrary, nl);
-		nlset(_orientationFromAngle, nl, 0);
-		orientation = _orientationFromAngle(rotation);
-	}*/
 	
 	NSArray *cropAndStraightenFilters = [self _cropAndStraightenFiltersForImageSize:ciImage.extent.size forceSquareCrop:NO forceUseGeometry:NO];
 	[effectFilters addObjectsFromArray:cropAndStraightenFilters];
@@ -758,17 +755,14 @@ static PLProgressHUD *epHUD = nil;
 
 - (unsigned)_cellsPerRow
 {
-	unsigned filterCount = [[%c(PLEffectFilterManager) sharedInstance] filterCount];
-	unsigned orig = %orig;
-	if (filterCount <= 9)
-		return orig;
-	if (filterCount <= 16)
-		return 4;
-	if (filterCount <= 25)
-		return 5;
-	if (filterCount <= 36)
-		return 6;
-	return orig;
+	NSUInteger filterCount = [[%c(PLEffectFilterManager) sharedInstance] filterCount];
+	NSUInteger i = 1;
+	do {
+		if (filterCount <= i*i)
+			break;
+		i++;
+	} while (1);
+	return i;
 }
 
 - (unsigned)_cellCount
@@ -803,7 +797,7 @@ static PLProgressHUD *epHUD = nil;
 	if (currentFilter == nil)
 		shouldOn = NO;
 	else
-		shouldOn = ![currentFilter.name isEqualToString:@"CINone"];
+		shouldOn = ![currentFilter.name isEqualToString:CINoneName];
 	[filterButton setOn:shouldOn];
 }
 
@@ -822,8 +816,25 @@ static PLProgressHUD *epHUD = nil;
 
 %hook PLEffectSelectionViewController
 
+- (NSArray *)_generateFilters
+{
+	PLEffectFilterManager *manager = [%c(PLEffectFilterManager) sharedInstance];
+	NSUInteger filterCount = [manager filterCount];
+    NSMutableArray *effects = [[NSMutableArray alloc] initWithCapacity:filterCount];
+    NSUInteger index = 0;
+	do {
+		CIFilter *filter = [manager filterForIndex:index];
+		if (![filter.name isEqualToString:CINoneName])
+			[effects addObject:filter];
+		index++;
+	} while (filterCount != index);
+	MSHookIvar<NSArray *>(self, "_effects") = effects;
+    return effects;
+}
+
 - (void)setSelectedEffect:(CIFilter *)filter
 {
+	%log;
 	if (filter != nil) {
 		NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
 		for (NSUInteger i = 0; i < [filters count]; i++) {
@@ -868,17 +879,14 @@ static PLProgressHUD *epHUD = nil;
 
 - (unsigned)_cellsPerRow
 {
-	unsigned filterCount = [[%c(CAMEffectFilterManager) sharedInstance] filterCount];
-	unsigned orig = %orig;
-	if (filterCount <= 9)
-		return orig;
-	if (filterCount <= 16)
-		return 4;
-	if (filterCount <= 25)
-		return 5;
-	if (filterCount <= 36)
-		return 6;
-	return orig;
+	NSUInteger filterCount = [[%c(CAMEffectFilterManager) sharedInstance] filterCount];
+	NSUInteger i = 1;
+	do {
+		if (filterCount <= i*i)
+			break;
+		i++;
+	} while (1);
+	return i;
 }
 
 - (unsigned)_cellCount
@@ -903,7 +911,7 @@ static PLProgressHUD *epHUD = nil;
 	if (currentFilter == nil)
 		shouldOn = NO;
 	else
-		shouldOn = ![currentFilter.name isEqualToString:@"CINone"];
+		shouldOn = ![currentFilter.name isEqualToString:CINoneName];
 	[filterButton setOn:shouldOn];
 }
 
@@ -981,12 +989,14 @@ static void EPLoader()
 	readFloat(CIHoleDistortion_inputRadius, 150)
 	readFloat(CICircleSplashDistortion_inputRadius, 150)
 	readFloat(CICircularScreen_inputWidth, 6)
-	readFloat(CICircularScreen_inputSharpness, 0.7);
+	readFloat(CICircularScreen_inputSharpness, 0.7)
 	readFloat(CILineScreen_inputAngle, 0)
 	readFloat(CILineScreen_inputWidth, 6)
-	readFloat(CILineScreen_inputSharpness, 0.7);
+	readFloat(CILineScreen_inputSharpness, 0.7)
+	readFloat(CIMirror_inputAngle, 0.0)
 	
 	readFloat(qualityFactor, 1)
+	mode = integerValueForKey(saveMode, 1);
 }
 
 static void PreferencesChangedCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)

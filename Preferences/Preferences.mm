@@ -11,6 +11,7 @@
 #include <sys/sysctl.h>
 
 #define fitColor [UIColor systemBlueColor]
+NSString *const updateFooterNotification = @"com.PS.EffectsPlus.prefs.footerUpdate";
 
 @interface PSViewController (EffectsPlus)
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath;
@@ -59,7 +60,7 @@ static NSBundle *epBundle()
 	NSMutableArray *array = [NSMutableArray array];
 	[array addObject:@"CIPhotoEffectMono"]; [array addObject:@"CIPhotoEffectTonal"];
 	[array addObject:@"CIPhotoEffectNoir"]; [array addObject:@"CIPhotoEffectFade"];
-	[array addObject:@"CINone"];
+	[array addObject:CINoneName];
 	[array addObject:@"CIPhotoEffectChrome"]; [array addObject:@"CIPhotoEffectProcess"];
 	[array addObject:@"CIPhotoEffectTransfer"];	[array addObject:@"CIPhotoEffectInstant"];
 	return array;
@@ -72,6 +73,13 @@ static NSBundle *epBundle()
 	[array addObject:@"CIXRay"]; [array addObject:@"CITriangleKaleidoscope"];
 	[array addObject:@"CILightTunnel"]; [array addObject:@"CIPinchDistortion"];
 	[array addObject:@"CITwirlDistortion"];	[array addObject:@"CIStretch"];
+	return array;
+}
+
+- (NSMutableArray *)arrayByAddingPhotoBoothsStock
+{
+	NSMutableArray *array = [self arrayByAddingPhotoBooths];
+	[array insertObject:CINoneName atIndex:4];
 	return array;
 }
 
@@ -139,9 +147,10 @@ static NSBundle *epBundle()
 				break;
 			case 3:
 			{
-				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingPhotoBooths]];
+				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingPhotoBoothsStock]];
 				NSMutableArray *array3 = [NSMutableArray array];
 				[array3 addObjectsFromArray:[self arrayByAddingDefaults]];
+				[array3 removeObject:CINoneName];
 				[array3 addObjectsFromArray:[self arrayByAddingExternal1]];
 				[array3 addObjectsFromArray:[self arrayByAddingExternal2]];
 				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array3];
@@ -187,20 +196,37 @@ static NSBundle *epBundle()
 		[super actionSheet:popup clickedButtonAtIndex:buttonIndex];
 }
 
-- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath
+- (void)setReorderColor:(UIColor *)color forCell:(UITableViewCell *)cell
 {
-	for (UIView *viewThree in cell.subviews) {
-		if ([[[viewThree class] description] isEqualToString:@"UITableViewCellScrollView"]) {
-			for (UIView *viewFour in viewThree.subviews) {
-				if ([[[viewFour class] description] isEqualToString:@"UITableViewCellReorderControl"]) {
-					for (UIImageView *viewFive in viewFour.subviews) {
-						UIImage *defaultIcon = viewFive.image;
-						viewFive.image = [defaultIcon _flatImageWithColor:[UIColor blackColor]];
+	for (UIView *scrollView in cell.subviews) {
+		if ([[[scrollView class] description] isEqualToString:@"UITableViewCellScrollView"]) {
+			for (UIView *reorderControl in scrollView.subviews) {
+				if ([[[reorderControl class] description] isEqualToString:@"UITableViewCellReorderControl"]) {
+					for (UIImageView *reorderIcon in reorderControl.subviews) {
+						UIImage *defaultIcon = reorderIcon.image;
+						reorderIcon.image = [defaultIcon _flatImageWithColor:color];
 					}
 				}
 			}
 		}
 	}
+}
+
+- (UIColor *)reorderColorForCell:(UITableViewCell *)cell
+{
+	NSString *identifier = cell.reuseIdentifier;
+	NSMutableArray *defaults = [self arrayByAddingDefaults];
+	[defaults removeObject:CINoneName];
+	if ([defaults containsObject:identifier])
+		return [UIColor systemBlueColor];
+	if ([[self arrayByAddingPhotoBooths] containsObject:identifier])
+		return [UIColor colorWithRed:1 green:0.5 blue:0.5 alpha:1];
+	return [UIColor blackColor];
+}
+
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath
+{
+	[self setReorderColor:[self reorderColorForCell:cell] forCell:cell];
 }
 
 - (void)viewDidLoad
@@ -209,7 +235,6 @@ static NSBundle *epBundle()
 	[self.tableView setAllowsSelectionDuringEditing:YES];
 	[self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:@"EffectCell"];
 	[self.tableView setEditing:YES];
-	//[self changeReorderColor];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
@@ -240,8 +265,8 @@ static NSBundle *epBundle()
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
 	switch (section) {
-		case 0: return @"Enabled Filters";
-		case 1: return @"Disabled Filters";
+		case 0: return [NSString stringWithFormat:@"Enabled Filters (%lu)", (unsigned long)_enabledEffects.count];
+		case 1: return [NSString stringWithFormat:@"Disabled Filters (%lu)", (unsigned long)_disabledEffects.count];
 	}
 	return nil;
 }
@@ -284,9 +309,16 @@ static NSBundle *epBundle()
 	[self saveSettings];
 }
 
+- (void)updateSectionsTitle
+{
+	[self.tableView headerViewForSection:0].textLabel.text = [self tableView:self.tableView titleForHeaderInSection:0];
+	[self.tableView headerViewForSection:1].textLabel.text = [self tableView:self.tableView titleForHeaderInSection:1];
+}
+
 - (void)tableView:(UITableView *)tableView didEndReorderingRowAtIndexPath:(NSIndexPath *)indexPath
 {
 	[self updateFilterNameColor];
+	[self updateSectionsTitle];
 }
 
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -328,6 +360,12 @@ static NSBundle *epBundle()
 	self.view = tableView;
 }
 
+static BOOL filterFit(NSUInteger filterCount)
+{
+	NSUInteger cellPerRow = (NSUInteger)sqrt(filterCount);
+	return cellPerRow*cellPerRow == filterCount;
+}
+
 - (void)updateFilterNameColor
 {
 	NSMutableArray *enabledIndexArray = [NSMutableArray array];
@@ -336,7 +374,7 @@ static NSBundle *epBundle()
 		NSIndexPath *enabledIndexPath = [NSIndexPath indexPathForRow:i inSection:0];
 		[enabledIndexArray addObject:enabledIndexPath];
 		UITableViewCell *enabledCell = [self.tableView cellForRowAtIndexPath:enabledIndexPath];
-		enabledCell.textLabel.textColor = enabledIndexCount == 9 ? fitColor : [UIColor blackColor];
+		enabledCell.textLabel.textColor = filterFit(enabledIndexCount) ? fitColor : [UIColor blackColor];
 	}
 	NSMutableArray *disabledIndexArray = [NSMutableArray array];
 	NSUInteger disabledIndexCount =  [self.tableView numberOfRowsInSection:1];
@@ -350,10 +388,11 @@ static NSBundle *epBundle()
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-	static NSString *const CellIdentifier = [NSString stringWithFormat:@"eff %ld", (long)indexPath.row];
+	BOOL index0 = indexPath.section == 0;
+	NSString *CellIdentifier = index0 ? [_enabledEffects.array objectAtIndex:indexPath.row] : [_disabledEffects.array objectAtIndex:indexPath.row];
 	UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
-	UIColor *stockColor = [UIColor colorWithRed:.8 green:.9 blue:.9 alpha:1];
-	UIColor *pbColor = [UIColor colorWithRed:1 green:.8 blue:.8 alpha:1];
+	UIColor *stockColor = [UIColor colorWithRed:0.8 green:0.9 blue:0.9 alpha:1];
+	UIColor *pbColor = [UIColor colorWithRed:1 green:0.8 blue:0.8 alpha:1];
 	NSArray *pbArray = [self arrayByAddingPhotoBooths];
 	NSBundle *plBundle = [NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/PhotoLibrary.framework"];
 	UIImage *FilterOn = [UIImage imageNamed:@"CAMFilterButtonOn" inBundle:plBundle];
@@ -367,10 +406,9 @@ static NSBundle *epBundle()
 		cell.textLabel.textColor = [UIColor blackColor];
 	}
 
-	BOOL index0 = indexPath.section == 0;
 	NSMutableOrderedSet *effectDict = index0 ? _enabledEffects : _disabledEffects;
 	NSUInteger filterCount = effectDict.count;
-	cell.textLabel.textColor = _enabledEffects.count == 9 && index0 ? fitColor : [UIColor blackColor];
+	cell.textLabel.textColor = filterFit(_enabledEffects.count) && index0 ? fitColor : [UIColor blackColor];
 	if (filterCount - 1 >= indexPath.row) {
 		NSString *effectName = [effectDict objectAtIndex:indexPath.row];
 		[cell.textLabel setText:displayNameFromCIFilterName(effectName)];
@@ -378,13 +416,7 @@ static NSBundle *epBundle()
 			[cell setBackgroundColor:stockColor];
 			[[cell imageView] setImage:FilterOn];
 		} else {
-			BOOL pb = NO;
-			for (NSString *name in pbArray) {
-				if ([name isEqualToString:effectName]) {
-					pb = YES;
-					break;
-				}
-			}
+			BOOL pb = [pbArray containsObject:effectName] && ![effectName isEqualToString:CINoneName];
 			if (pb) {
 				[[cell imageView] setImage:PB];
 				[cell setBackgroundColor:pbColor];
@@ -403,18 +435,6 @@ static NSBundle *epBundle()
 @end
 
 @implementation EffectsPlusFiltersSettingsController
-
-- (void)hideKeyboard
-{
-	[[super view] endEditing:YES];
-}
-
-- (id)init
-{
-	if (self == [super init])
-		self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithTitle:@"⏬" style:UIBarButtonItemStyleBordered target:self action:@selector(hideKeyboard)] autorelease];
-	return self;
-}
 
 - (void)setInput:(id)value forSpecifier:(PSSpecifier *)spec
 {
@@ -443,6 +463,7 @@ static NSBundle *epBundle()
 @end
 
 @interface EffectsPlusPrefController : PSListController
+@property (nonatomic, retain) PSSpecifier *footerSpec;
 @end
 
 @implementation EffectsPlusPrefController
@@ -473,6 +494,7 @@ static NSBundle *epBundle()
 		[heart sizeToFit];
 		[heart addTarget:self action:@selector(love) forControlEvents:UIControlEventTouchUpInside];
 		self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithCustomView:heart] autorelease];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateFooter:) name:updateFooterNotification object:nil];
 	}
 	return self;
 }
@@ -480,10 +502,100 @@ static NSBundle *epBundle()
 - (NSArray *)specifiers
 {
 	if (_specifiers == nil) {
-		NSMutableArray *specs = [[NSMutableArray arrayWithArray:[self loadSpecifiersFromPlistName:@"EffectsPlusPref" target:self]] retain];			
+		NSMutableArray *specs = [[NSMutableArray arrayWithArray:[self loadSpecifiersFromPlistName:@"EffectsPlusPref" target:self]] retain];	
+		
+		for (PSSpecifier *spec in specs) {
+			NSString *Id = [[spec properties] objectForKey:@"id"];
+			if ([Id isEqualToString:@"footer"]) {
+				self.footerSpec = spec;
+				break;
+			}
+		}
+		[self updateFooter:nil];	
+			
 		_specifiers = [specs copy];
   	}
 	return _specifiers;
+}
+
+- (NSString *)footerText
+{
+	int mode = integerValueForKey(saveMode, 1);
+	switch (mode) {
+		case 1:
+			return @"Prompt saving options (#1, #2, and #3) when user taps at Save button.";
+		case 2:
+			return @"Save using system default method without prompt.";
+		case 3:
+			return @"Save as a new image without prompt. (Not keep photo adjustments)";
+		case 4:
+			return @"Save as a new image without prompt. (Keep photo adjustments)";
+	}
+	return nil;
+}
+
+- (void)updateFooter:(NSNotification *)notification
+{
+	[self.footerSpec setProperty:[self footerText] forKey:@"footerText"];
+	[self reloadSpecifier:self.footerSpec animated:YES];
+}
+
+@end
+
+static void writeIntegerValueForKey(int value, NSString *key)
+{
+	NSMutableDictionary *dict = [prefDict() mutableCopy] ?: [NSMutableDictionary dictionary];
+	[dict setObject:@(value) forKey:key];
+	[dict writeToFile:PREF_PATH atomically:YES];
+}
+
+@interface EPSaveOptionCell : PSTableCell
+@end
+
+@implementation EPSaveOptionCell
+
+- (id)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(id)identifier specifier:(PSSpecifier *)specifier
+{
+	if (self == [super initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:identifier specifier:specifier]) {
+		UISegmentedControl *modes = [[[UISegmentedControl alloc] initWithItems:@[@"❗ ", @"#1", @"#2", @"#3"]] autorelease];
+		modes.tintColor = [UIColor systemRedColor];
+		[modes addTarget:self action:@selector(modeAction:) forControlEvents:UIControlEventValueChanged];
+		modes.selectedSegmentIndex = integerValueForKey(saveMode, 1) - 1;
+		[self setAccessoryView:modes];
+	}
+	return self;
+}
+
+- (void)modeAction:(UISegmentedControl *)segment
+{
+	writeIntegerValueForKey(segment.selectedSegmentIndex + 1, saveMode);
+	notify_post(PreferencesChangedNotification);
+	[[NSNotificationCenter defaultCenter] postNotificationName:updateFooterNotification object:nil userInfo:nil];
+}
+
+- (SEL)action
+{
+	return nil;
+}
+
+- (id)target
+{
+	return nil;
+}
+
+- (SEL)cellAction
+{
+	return nil;
+}
+
+- (id)cellTarget
+{
+	return nil;
+}
+
+- (void)dealloc
+{
+	[super dealloc];
 }
 
 @end

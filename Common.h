@@ -1,12 +1,14 @@
 #import "../PS.h"
 
-#define PREF_PATH @"/var/mobile/Library/Preferences/com.PS.EffectsPlus.plist"
+#define PREF_PATH [NSHomeDirectory() stringByAppendingPathComponent:@"/Library/Preferences/com.PS.EffectsPlus.plist"]
 #define PreferencesChangedNotification "com.PS.EffectsPlus.prefs"
 #define kFontSize 14
 #define NORMAL_EFFECT_COUNT 8
 #define EXTRA_EFFECT_COUNT 25
-static const NSString *ENABLED_EFFECT = @"EnabledEffects";
-static const NSString *DISABLED_EFFECT = @"DisabledEffects";
+NSString *const ENABLED_EFFECT = @"EnabledEffects";
+NSString *const DISABLED_EFFECT = @"DisabledEffects";
+NSString *const saveMode = @"saveMode";
+NSString *const CINoneName = @"CINone";
 
 extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment);
 
@@ -157,14 +159,32 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 - (void)_setSelectedIndexPath:(NSIndexPath *)indexPath;
 @end
 
-@interface PLEffectsGridView : UIView
-- (unsigned)_cellCount;
-- (BOOL)isBlackAndWhite;
+@interface PLGLView
+- (CGFloat)drawableHeight;
+- (CGFloat)drawableWidth;
 @end
 
-@interface CAMEffectsGridView : UIView
+@interface CAMGLView
+- (CGFloat)drawableHeight;
+- (CGFloat)drawableWidth;
+@end
+
+@interface PLEffectsGridView : PLGLView
 - (unsigned)_cellCount;
+- (unsigned)_filterIndexForGridIndex:(unsigned)index;
 - (BOOL)isBlackAndWhite;
+- (BOOL)isSquare;
+- (CGRect)rectForFilterIndex:(unsigned)index;
+- (CGRect)_squareCropFromRect:(CGRect)rect;
+@end
+
+@interface CAMEffectsGridView : CAMGLView
+- (unsigned)_cellCount;
+- (unsigned)_filterIndexForGridIndex:(unsigned)index;
+- (BOOL)isBlackAndWhite;
+- (BOOL)isSquare;
+- (CGRect)rectForFilterIndex:(unsigned)index;
+- (CGRect)_squareCropFromRect:(CGRect)rect;
 @end
 
 @interface PLImageAdjustmentView : UIView
@@ -235,6 +255,7 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 
 @interface PLEditPhotoController (Addition)
 - (void)EPSavePhoto;
+- (void)ep_save:(int)mode;
 @end
 
 @interface PLCIFilterUtilties : NSObject
@@ -249,7 +270,7 @@ static NSString *displayNameFromCIFilterName(NSString *name)
 	EPReturn(PLLocalizedFrameworkString(@"FILTER_NOIR", nil), @"CIPhotoEffectNoir");
 	EPReturn(PLLocalizedFrameworkString(@"FILTER_FADE", nil), @"CIPhotoEffectFade");
 	EPReturn(PLLocalizedFrameworkString(@"FILTER_CHROME", nil), @"CIPhotoEffectChrome");
-	EPReturn(PLLocalizedFrameworkString(@"FILTER_NONE", nil), @"CINone");
+	EPReturn(PLLocalizedFrameworkString(@"FILTER_NONE", nil), CINoneName);
 	EPReturn(PLLocalizedFrameworkString(@"FILTER_PROCESS", nil), @"CIPhotoEffectProcess");
 	EPReturn(PLLocalizedFrameworkString(@"FILTER_TRANSFER", nil), @"CIPhotoEffectTransfer");
 	EPReturn(PLLocalizedFrameworkString(@"FILTER_INSTANT", nil), @"CIPhotoEffectInstant");
@@ -281,5 +302,16 @@ static NSString *displayNameFromCIFilterName(NSString *name)
 	EPReturn(@"Squeeze", @"CIPinchDistortion");
 	EPReturn(@"Thermal", @"CIThermal");
 	EPReturn(@"Light Tunnel", @"CILightTunnel");
-	return @"";
+	return nil;
+}
+
+static NSDictionary *prefDict()
+{
+	return [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+}
+
+static int integerValueForKey(NSString *key, int defaultValue)
+{
+	NSDictionary *pref = prefDict();
+	return pref[key] ? [pref[key] intValue] : defaultValue;
 }

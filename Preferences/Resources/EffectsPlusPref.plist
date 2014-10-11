@@ -20,8 +20,8 @@
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Effects+</string>
-			<key>footerText</key>
-			<string>Enabling every filters is not a good idea because too many filters can causes the lag.</string>
+			<key>id</key>
+        	<string>footer</string>
 		</dict>
       <dict>
         	<key>cell</key>
@@ -49,11 +49,19 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSTableCell</string>
+			<key>cellClass</key>
+			<string>EPSaveOptionCell</string>
+			<key>label</key>
+			<string>Saving type</string>
+        	<key>footerAlignment</key>
+        	<integer>0</integer>
+        </dict>
+		<dict>
+			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Filters Settings</string>
-			<key>footerText</key>
-			<string>Adjust the specific parameters for each filter.</string>
+			<string>Configure filters setting</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -67,10 +75,8 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Live Filters Quality</string>
-			<key>footerText</key>
-			<string>Adjust the quality factor of filters list page in camera app. This option may be necessary if you face the lag because of many filters there.</string>
-		</dict>
+			<string>Effects grid quality factor</string>
+			</dict>
 		 <dict>
 			<key>PostNotification</key>
 			<string>com.PS.EffectsPlus.prefs</string>
@@ -92,10 +98,6 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Fill filters list</string>
-			<key>footerText</key>
-			<string>Replace the empty black space in filters list view with the normal view(s) without filter.</string>
 		</dict>
 		<dict>
         	<key>cell</key>
@@ -107,18 +109,10 @@
         	<key>key</key>
         	<string>FillGrid</string>
         	<key>label</key>
-        	<string>Enabled</string>
+        	<string>Fill effects grid</string>
         	<key>PostNotification</key>
         	<string>com.PS.EffectsPlus.prefs</string>
       </dict>
-      <dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Auto Hide Bars</string>
-			<key>footerText</key>
-			<string>When there are many filters, the camera bars could shade the filters. Enable this to fix that issue.</string>
-		</dict>
 		<dict>
         	<key>cell</key>
         	<string>PSSwitchCell</string>
@@ -129,7 +123,7 @@
         	<key>key</key>
         	<string>AutoHideBB</string>
         	<key>label</key>
-        	<string>Enabled</string>
+        	<string>Auto hide bars</string>
         	<key>PostNotification</key>
         	<string>com.PS.EffectsPlus.prefs</string>
       </dict>
@@ -164,9 +158,7 @@
         <string>Developer's notes</string>
         <key>footerText</key>
         <string>• Multiple filters at once is possible, but not implemented yet. I'm working on this.
-• Mirrors (Filter) should not be applied in large images, too large image size causes system unable to handle it.
-• The exported images may not have filter applied for some services, such as iPhoto. But some common services eg. Facebook, Instagram or Twitter does work.
-• The best way to get images with filters applied is saving to the new image, you can do this directly using Save button at top-right of the photo editor view. ("Default" for default saving, "As a new image" for the another image, and "Keep adjustments (N)" for the another image, but keep some image settings)</string>
+• Mirrors (Filter) should not be applied in large images, too large image size causes system unable to handle it.</string>
       </dict>
       <dict>
         <key>cell</key>
