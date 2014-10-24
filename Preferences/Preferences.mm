@@ -10,7 +10,7 @@
 #include <objc/runtime.h>
 #include <sys/sysctl.h>
 
-#define fitColor [UIColor systemBlueColor]
+UIColor *fitColor = [UIColor systemBlueColor];
 NSString *const updateFooterNotification = @"com.PS.EffectsPlus.prefs.footerUpdate";
 
 @interface PSViewController (EffectsPlus)
@@ -198,13 +198,25 @@ static NSBundle *epBundle()
 
 - (void)setReorderColor:(UIColor *)color forCell:(UITableViewCell *)cell
 {
-	for (UIView *scrollView in cell.subviews) {
-		if ([[[scrollView class] description] isEqualToString:@"UITableViewCellScrollView"]) {
-			for (UIView *reorderControl in scrollView.subviews) {
-				if ([[[reorderControl class] description] isEqualToString:@"UITableViewCellReorderControl"]) {
-					for (UIImageView *reorderIcon in reorderControl.subviews) {
-						UIImage *defaultIcon = reorderIcon.image;
-						reorderIcon.image = [defaultIcon _flatImageWithColor:color];
+	for (UIView *view in cell.subviews) {
+		if (isiOS8) {
+			if ([[[view class] description] isEqualToString:@"UITableViewCellReorderControl"]) {
+				for (UIImageView *reorderIcon in view.subviews) {
+					UIImage *defaultIcon = reorderIcon.image;
+					reorderIcon.image = [defaultIcon _flatImageWithColor:color];
+					return;
+				}
+			}
+		}
+		else {
+			if ([[[view class] description] isEqualToString:@"UITableViewCellScrollView"]) {
+				for (UIView *reorderControl in view.subviews) {
+					if ([[[reorderControl class] description] isEqualToString:@"UITableViewCellReorderControl"]) {
+						for (UIImageView *reorderIcon in reorderControl.subviews) {
+							UIImage *defaultIcon = reorderIcon.image;
+							reorderIcon.image = [defaultIcon _flatImageWithColor:color];
+							return;
+						}
 					}
 				}
 			}
@@ -394,7 +406,8 @@ static BOOL filterFit(NSUInteger filterCount)
 	UIColor *stockColor = [UIColor colorWithRed:0.8 green:0.9 blue:0.9 alpha:1];
 	UIColor *pbColor = [UIColor colorWithRed:1 green:0.8 blue:0.8 alpha:1];
 	NSArray *pbArray = [self arrayByAddingPhotoBooths];
-	NSBundle *plBundle = [NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/PhotoLibrary.framework"];
+	NSString *bundlePath = isiOS8 ? @"/System/Library/PrivateFrameworks/CameraKit.framework" : @"/System/Library/PrivateFrameworks/PhotoLibrary.framework";
+	NSBundle *plBundle = [NSBundle bundleWithPath:bundlePath];
 	UIImage *FilterOn = [UIImage imageNamed:@"CAMFilterButtonOn" inBundle:plBundle];
 	UIImage *Filter = [UIImage imageNamed:@"CAMFilterButton" inBundle:plBundle];
 	UIImage *PB = [UIImage imageNamed:@"PB" inBundle:epBundle()];
@@ -463,6 +476,7 @@ static BOOL filterFit(NSUInteger filterCount)
 @end
 
 @interface EffectsPlusPrefController : PSListController
+@property (nonatomic, retain) PSSpecifier *oldEditorSpec;
 @property (nonatomic, retain) PSSpecifier *footerSpec;
 @end
 
@@ -506,12 +520,14 @@ static BOOL filterFit(NSUInteger filterCount)
 		
 		for (PSSpecifier *spec in specs) {
 			NSString *Id = [[spec properties] objectForKey:@"id"];
-			if ([Id isEqualToString:@"footer"]) {
+			if ([Id isEqualToString:@"footer"])
 				self.footerSpec = spec;
-				break;
-			}
+			else if ([Id isEqualToString:@"oldEditor"])
+				self.oldEditorSpec = spec;
 		}
 		[self updateFooter:nil];	
+		if (!isiOS8)
+			[specs removeObject:self.oldEditorSpec];
 			
 		_specifiers = [specs copy];
   	}

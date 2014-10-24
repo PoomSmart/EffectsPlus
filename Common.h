@@ -136,7 +136,7 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 @end
 
 @interface PLEffectFilterManager : NSObject
-+ (PLEffectFilterManager *)sharedInstance;
++ (id)sharedInstance;
 - (unsigned)blackAndWhiteFilterStartIndex;
 - (unsigned)filterCount;
 - (CIFilter *)filterForIndex:(unsigned)index;
@@ -144,7 +144,7 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 @end
 
 @interface CAMEffectFilterManager : NSObject
-+ (CAMEffectFilterManager *)sharedInstance;
++ (id)sharedInstance;
 - (unsigned)blackAndWhiteFilterStartIndex;
 - (unsigned)filterCount;
 - (CIFilter *)filterForIndex:(unsigned)index;
@@ -214,6 +214,7 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 
 @interface PLManagedAsset : _PLManagedAsset
 @property(readonly, nonatomic) NSString *pathForImageFile;
+@property(readonly, nonatomic) NSString *pathForOriginalFile;
 @end
 
 @interface PLEditPhotoController : UIViewController <UIActionSheetDelegate>
@@ -260,6 +261,17 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 
 @interface PLCIFilterUtilties : NSObject
 + (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)inputImage orientation:(UIImageOrientation)orientation copyFiltersFirst:(BOOL)copyFirst;
+@end
+
+@interface PLPhotoEffect : NSObject
++ (NSArray *)allEffects;
++ (PLPhotoEffect *)_effectWithIdentifier:(NSString *)identifier CIFilterName:(NSString *)filterName displayName:(NSString *)displayName;
++ (PLPhotoEffect *)_effectWithIdentifier:(NSString *)identifier;
++ (PLPhotoEffect *)_effectWithCIFilterName:(NSString *)identifier;
++ (NSUInteger)indexOfEffectWithIdentifier:(NSString *)identifier;
+- (NSString *)displayName;
+- (NSString *)filterIdentifier;
+- (NSString *)CIFilterName;
 @end
 
 static NSString *displayNameFromCIFilterName(NSString *name)

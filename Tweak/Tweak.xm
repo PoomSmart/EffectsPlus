@@ -6,6 +6,7 @@
 static BOOL TweakEnabled;
 static BOOL FillGrid;
 static BOOL AutoHideBB;
+static BOOL oldEditor;
 
 static BOOL internalBlurHook = NO;
 static BOOL globalFilterHook = NO;
@@ -633,103 +634,6 @@ static void showFilterSelectionAlert(id self)
 
 %end
 
-static PLProgressHUD *epHUD = nil;
-
-%hook PLEditPhotoController
-
-%new
-- (void)ep_save:(int)mode
-{
-	switch (mode) {
-		case 2:
-			[self save:nil];
-			break;
-		case 3:
-			[self _setControlsEnabled:NO animated:NO];
-			epHUD = [[PLProgressHUD alloc] init];
-			[epHUD setText:PLLocalizedFrameworkString(@"SAVING_PHOTO", nil)];
-			[epHUD showInView:self.view];
-			[self EPSavePhoto];
-			break;
-		case 4:
-			MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = YES;
-			[self saveAdjustments];
-			MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = NO;
-			break;
-	}
-}
-
-%new
-- (void)ep_showOptions
-{
-	if (mode == 1) {
-		UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"Select saving options" delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:nil otherButtonTitles:@"Default", @"New image", @"New image (w/ adjustments)", nil];
-		sheet.tag = 9598;
-		[sheet showInView:self.view];
-		[sheet release];
-	} else
-		[self ep_save:mode];
-}
-
-- (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex
-{
-	if (popup.tag == 9598) {
-		int mode = buttonIndex + 1;
-		[self ep_save:mode];
-	} else
-		%orig;
-}
-
-%new
-- (void)EPSavePhoto
-{
-	PLManagedAsset *asset = MSHookIvar<PLManagedAsset *>(self, "_editedPhoto");
-	NSString *actualImagePath = [asset pathForImageFile];
-	UIImage *actualImage = [UIImage imageWithContentsOfFile:actualImagePath];
-	NSMutableArray *effectFilters = [[self _currentNonGeometryFiltersWithEffectFilters:MSHookIvar<NSArray *>(self, "_effectFilters")] mutableCopy];
-	CIImage *ciImage = [self _newCIImageFromUIImage:actualImage];
-	
-	// Fixing image orientation, still dirt (?)
-	int orientation = 1;
-	float rotation = MSHookIvar<float>(self, "_rotationAngle");
-	float angle = rotation;
-	
-	if (angle > 6)
-		angle = fmodf(rotation, 6.28319);
-	if (round(abs(angle)) == 3)
-		orientation = 3;
-	else if (round(angle) == 2)
-		orientation = 8;
-	else if (round(angle) == 5 || (round(angle) == -2 && angle < 0))
-		orientation = 6;
-	
-	NSArray *cropAndStraightenFilters = [self _cropAndStraightenFiltersForImageSize:ciImage.extent.size forceSquareCrop:NO forceUseGeometry:NO];
-	[effectFilters addObjectsFromArray:cropAndStraightenFilters];
-	CIImage *ciImageWithFilters = [%c(PLCIFilterUtilities) outputImageFromFilters:effectFilters inputImage:ciImage orientation:orientation copyFiltersFirst:NO];
-	CGImageRef cgImage = [MSHookIvar<CIContext *>(self, "_ciContextFullSize") createCGImage:ciImageWithFilters fromRect:[ciImageWithFilters extent]];
-	ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
-	[library writeImageToSavedPhotosAlbum:cgImage metadata:nil completionBlock:^(NSURL *assetURL, NSError *error) {
-		CGImageRelease(cgImage);
-		if (epHUD != nil) {
-			[epHUD hide];
-			[epHUD release];
-		}
-		[self _setControlsEnabled:YES animated:NO];
-		[self cancel:nil];
-	}];
-	[library release];
-}
-
-- (UIBarButtonItem *)_rightButtonForMode:(int)mode enableDone:(BOOL)done enableSave:(BOOL)save
-{
-	UIBarButtonItem *item = %orig;
-	if (mode == 0 && !done && save)
-		[item setAction:@selector(ep_showOptions)];
-	return item;
-}
-
-%end
-
 %hook PLEffectFilterManager
 
 - (PLEffectFilterManager *)init
@@ -854,6 +758,67 @@ static PLProgressHUD *epHUD = nil;
 
 %group iOS8
 
+/*
+%hook PLPhotoEffect
+
++ (NSArray *)allEffects
+{
+	static NSMutableArray *effects = [NSMutableArray array];
+	static dispatch_once_t onceToken;
+	dispatch_once (&onceToken, ^{
+		CAMEffectFilterManager *manager = [%c(CAMEffectFilterManager) sharedInstance];
+		NSUInteger filterCount = [manager filterCount];
+    	NSUInteger index = 0;
+		do {
+			CIFilter *filter = [manager filterForIndex:index];
+			NSString *filterName = filter.name;
+			NSString *displayName = displayNameFromCIFilterName(filterName);
+			PLPhotoEffect *effect = [%c(PLPhotoEffect) _effectWithIdentifier:displayName CIFilterName:filterName displayName:displayName];
+			[effects addObject:effect];
+			index++;
+		} while (filterCount != index);
+	});
+    return effects;
+}
+
++ (PLPhotoEffect *)effectWithIdentifier:(NSString *)identifier
+{
+	return [[self allEffects] objectAtIndex:[self indexOfEffectWithIdentifier:identifier]];
+}
+
++ (PLPhotoEffect *)effectWithCIFilterName:(NSString *)filterName
+{
+	PLPhotoEffect *targetEffect = nil;
+	NSArray *allEffects = [%c(PLPhotoEffect) allEffects];
+	for (NSUInteger i = 0; i < [allEffects count]; i++) {
+		PLPhotoEffect *effect = [allEffects objectAtIndex:i];
+		NSString *effectFilterName = [effect CIFilterName];
+		if ([effectFilterName isEqualToString:filterName]) {
+			targetEffect = effect;
+			break;
+		}
+	}
+	return targetEffect;
+}
+
++ (NSUInteger)indexOfEffectWithIdentifier:(NSString *)identifier
+{
+	NSUInteger index = 0;
+	NSArray *allEffects = [%c(PLPhotoEffect) allEffects];
+	for (NSUInteger i = 0; i < [allEffects count]; i++) {
+		PLPhotoEffect *effect = [allEffects objectAtIndex:i];
+		NSString *effectIdentifier = [effect filterIdentifier];
+		if ([effectIdentifier isEqualToString:identifier]) {
+			index = i;
+			break;
+		}
+	}
+	return index;
+}
+
+%end
+*/
+
 %hook CAMEffectFilterManager
 
 - (CAMEffectFilterManager *)init
@@ -947,6 +912,117 @@ static PLProgressHUD *epHUD = nil;
 
 %end
 
+%hook PUPhotoEditProtoSettings
+
+- (BOOL)useOldPhotosEditor2
+{
+	return oldEditor ? YES : %orig;
+}
+
+- (void)setUseOldPhotosEditor2:(BOOL)use
+{
+	%orig(oldEditor ? YES : use);
+}
+
+%end
+
+%end
+
+static PLProgressHUD *epHUD = nil;
+
+%hook PLEditPhotoController
+
+%new
+- (void)ep_save:(int)mode
+{
+	switch (mode) {
+		case 2:
+			[self save:nil];
+			break;
+		case 3:
+			[self _setControlsEnabled:NO animated:NO];
+			epHUD = [[PLProgressHUD alloc] init];
+			[epHUD setText:PLLocalizedFrameworkString(@"SAVING_PHOTO", nil)];
+			[epHUD showInView:self.view];
+			[self EPSavePhoto];
+			break;
+		case 4:
+			MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = YES;
+			[self saveAdjustments];
+			MSHookIvar<BOOL>(self, "_savesAdjustmentsToCameraRoll") = NO;
+			break;
+	}
+}
+
+%new
+- (void)ep_showOptions
+{
+	if (mode == 1) {
+		UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"Select saving options" delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:nil otherButtonTitles:@"Default", @"New image", @"New image (w/ adjustments)", nil];
+		sheet.tag = 9598;
+		[sheet showInView:self.view];
+		[sheet release];
+	} else
+		[self ep_save:mode];
+}
+
+- (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex
+{
+	if (popup.tag == 9598) {
+		int mode = buttonIndex + 2;
+		[self ep_save:mode];
+	} else
+		%orig;
+}
+
+%new
+- (void)EPSavePhoto
+{
+	PLManagedAsset *asset = MSHookIvar<PLManagedAsset *>(self, "_editedPhoto");
+	NSString *actualImagePath = isiOS8 ? [asset pathForOriginalFile] : [asset pathForImageFile];
+	UIImage *actualImage = [UIImage imageWithContentsOfFile:actualImagePath];
+	NSMutableArray *effectFilters = [[self _currentNonGeometryFiltersWithEffectFilters:MSHookIvar<NSArray *>(self, "_effectFilters")] mutableCopy];
+	CIImage *ciImage = [self _newCIImageFromUIImage:actualImage];
+	
+	// Fixing image orientation, still dirt (?)
+	int orientation = 1;
+	float rotation = MSHookIvar<float>(self, "_rotationAngle");
+	float angle = rotation;
+	
+	if (angle > 6)
+		angle = fmodf(rotation, 6.28319);
+	if (round(abs(angle)) == 3)
+		orientation = 3;
+	else if (round(angle) == 2)
+		orientation = 8;
+	else if (round(angle) == 5 || (round(angle) == -2 && angle < 0))
+		orientation = 6;
+	
+	NSArray *cropAndStraightenFilters = [self _cropAndStraightenFiltersForImageSize:ciImage.extent.size forceSquareCrop:NO forceUseGeometry:NO];
+	[effectFilters addObjectsFromArray:cropAndStraightenFilters];
+	CIImage *ciImageWithFilters = [%c(PLCIFilterUtilities) outputImageFromFilters:effectFilters inputImage:ciImage orientation:orientation copyFiltersFirst:NO];
+	CGImageRef cgImage = [MSHookIvar<CIContext *>(self, "_ciContextFullSize") createCGImage:ciImageWithFilters fromRect:[ciImageWithFilters extent]];
+	ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
+	[library writeImageToSavedPhotosAlbum:cgImage metadata:nil completionBlock:^(NSURL *assetURL, NSError *error) {
+		CGImageRelease(cgImage);
+		if (epHUD != nil) {
+			[epHUD hide];
+			[epHUD release];
+		}
+		[self _setControlsEnabled:YES animated:NO];
+		[self cancel:nil];
+	}];
+	[library release];
+}
+
+- (UIBarButtonItem *)_rightButtonForMode:(int)mode enableDone:(BOOL)done enableSave:(BOOL)save
+{
+	UIBarButtonItem *item = %orig;
+	if (mode == 0 && !done && save)
+		[item setAction:@selector(ep_showOptions)];
+	return item;
+}
+
 %end
 
 static void EPLoader()
@@ -956,6 +1032,7 @@ static void EPLoader()
 	TweakEnabled = [dict[@"Enabled"] boolValue];
 	FillGrid = [dict[@"FillGrid"] boolValue];
 	AutoHideBB = [dict[@"AutoHideBB"] boolValue];
+	oldEditor = [dict[@"useOldEditor"] boolValue];
 	#define readFloat(val, defaultVal) \
 		val = dict[[NSString stringWithUTF8String:#val]] ? [dict[[NSString stringWithUTF8String:#val]] floatValue] : defaultVal;
 	readFloat(CIColorMonochrome_R, 0.5)
