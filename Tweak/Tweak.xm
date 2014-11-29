@@ -758,67 +758,6 @@ static void showFilterSelectionAlert(id self)
 
 %group iOS8
 
-/*
-%hook PLPhotoEffect
-
-+ (NSArray *)allEffects
-{
-	static NSMutableArray *effects = [NSMutableArray array];
-	static dispatch_once_t onceToken;
-	dispatch_once (&onceToken, ^{
-		CAMEffectFilterManager *manager = [%c(CAMEffectFilterManager) sharedInstance];
-		NSUInteger filterCount = [manager filterCount];
-    	NSUInteger index = 0;
-		do {
-			CIFilter *filter = [manager filterForIndex:index];
-			NSString *filterName = filter.name;
-			NSString *displayName = displayNameFromCIFilterName(filterName);
-			PLPhotoEffect *effect = [%c(PLPhotoEffect) _effectWithIdentifier:displayName CIFilterName:filterName displayName:displayName];
-			[effects addObject:effect];
-			index++;
-		} while (filterCount != index);
-	});
-    return effects;
-}
-
-+ (PLPhotoEffect *)effectWithIdentifier:(NSString *)identifier
-{
-	return [[self allEffects] objectAtIndex:[self indexOfEffectWithIdentifier:identifier]];
-}
-
-+ (PLPhotoEffect *)effectWithCIFilterName:(NSString *)filterName
-{
-	PLPhotoEffect *targetEffect = nil;
-	NSArray *allEffects = [%c(PLPhotoEffect) allEffects];
-	for (NSUInteger i = 0; i < [allEffects count]; i++) {
-		PLPhotoEffect *effect = [allEffects objectAtIndex:i];
-		NSString *effectFilterName = [effect CIFilterName];
-		if ([effectFilterName isEqualToString:filterName]) {
-			targetEffect = effect;
-			break;
-		}
-	}
-	return targetEffect;
-}
-
-+ (NSUInteger)indexOfEffectWithIdentifier:(NSString *)identifier
-{
-	NSUInteger index = 0;
-	NSArray *allEffects = [%c(PLPhotoEffect) allEffects];
-	for (NSUInteger i = 0; i < [allEffects count]; i++) {
-		PLPhotoEffect *effect = [allEffects objectAtIndex:i];
-		NSString *effectIdentifier = [effect filterIdentifier];
-		if ([effectIdentifier isEqualToString:identifier]) {
-			index = i;
-			break;
-		}
-	}
-	return index;
-}
-
-%end
-*/
-
 %hook CAMEffectFilterManager
 
 - (CAMEffectFilterManager *)init
@@ -895,6 +834,22 @@ static void showFilterSelectionAlert(id self)
 
 %hook CAMEffectSelectionViewController
 
+- (NSArray *)_generateFilters
+{
+	PLEffectFilterManager *manager = [%c(CAMEffectFilterManager) sharedInstance];
+	NSUInteger filterCount = [manager filterCount];
+    NSMutableArray *effects = [[NSMutableArray alloc] initWithCapacity:filterCount];
+    NSUInteger index = 0;
+	do {
+		CIFilter *filter = [manager filterForIndex:index];
+		if (![filter.name isEqualToString:CINoneName])
+			[effects addObject:filter];
+		index++;
+	} while (filterCount != index);
+	MSHookIvar<NSArray *>(self, "_effects") = effects;
+    return effects;
+}
+
 - (void)setSelectedEffect:(CIFilter *)filter
 {
 	if (filter != nil) {
@@ -922,6 +877,86 @@ static void showFilterSelectionAlert(id self)
 - (void)setUseOldPhotosEditor2:(BOOL)use
 {
 	%orig(oldEditor ? YES : use);
+}
+
+%end
+
+%hook PLPhotoEffect
+
+static NSMutableArray *effects = nil;
+static NSMutableArray *effectsForiOS8()
+{
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		effects = [NSMutableArray array];
+		CAMEffectFilterManager *manager = [%c(CAMEffectFilterManager) sharedInstance];
+		NSMutableArray *camEffects = MSHookIvar<NSMutableArray *>(manager, "_effects");
+		NSMutableArray *ourCamEffects = [NSMutableArray arrayWithArray:camEffects];
+		if (![[%c(PUPhotoEditProtoSettings) sharedInstance] useOldPhotosEditor2]) {
+			NSMutableArray *camEffectsToBeRemoved = [NSMutableArray array];
+			for (NSUInteger i = 0; i < [ourCamEffects count]; i++) {
+				CIFilter *noneFilter = [ourCamEffects objectAtIndex:i];
+				NSString *noneFilterName = noneFilter.name;
+				if ([effectsThatNotSupportedModernEditor() containsObject:noneFilterName])
+					[camEffectsToBeRemoved addObject:noneFilter];
+			}
+			[ourCamEffects removeObjectsInArray:camEffectsToBeRemoved];
+		}
+		NSUInteger filterCount = ourCamEffects.count;
+    	NSUInteger index = 0;
+		do {
+			CIFilter *filter = [ourCamEffects objectAtIndex:index];
+			NSString *filterName = filter.name;
+			NSString *displayName = displayNameFromCIFilterName(filterName);
+			PLPhotoEffect *effect = [%c(PLPhotoEffect) _effectWithIdentifier:displayName CIFilterName:filterName displayName:displayName];
+			[effects addObject:effect];
+			index++;
+		} while (filterCount != index);
+		[effects retain];
+	});
+	return effects;
+}
+
++ (NSArray *)allEffects
+{
+    return effectsForiOS8();
+}
+
++ (PLPhotoEffect *)effectWithIdentifier:(NSString *)identifier
+{
+	NSArray *allEffects = effectsForiOS8();
+	PLPhotoEffect *effect = [allEffects objectAtIndex:[self indexOfEffectWithIdentifier:identifier]];
+	return effect;
+}
+
++ (PLPhotoEffect *)effectWithCIFilterName:(NSString *)filterName
+{
+	PLPhotoEffect *targetEffect = nil;
+	NSArray *allEffects = effectsForiOS8();
+	for (NSUInteger i = 0; i < [allEffects count]; i++) {
+		PLPhotoEffect *effect = [allEffects objectAtIndex:i];
+		NSString *effectFilterName = [effect CIFilterName];
+		if ([effectFilterName isEqualToString:filterName]) {
+			targetEffect = effect;
+			break;
+		}
+	}
+	return targetEffect;
+}
+
++ (NSUInteger)indexOfEffectWithIdentifier:(NSString *)identifier
+{
+	NSUInteger index = 0;
+	NSArray *allEffects = effectsForiOS8();
+	for (NSUInteger i = 0; i < [allEffects count]; i++) {
+		PLPhotoEffect *effect = [allEffects objectAtIndex:i];
+		NSString *effectIdentifier = [effect filterIdentifier];
+		if ([effectIdentifier isEqualToString:identifier]) {
+			index = i;
+			break;
+		}
+	}
+	return index;
 }
 
 %end
@@ -1085,7 +1120,7 @@ static void PreferencesChangedCallback(CFNotificationCenterRef center, void *obs
 %ctor
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, PreferencesChangedCallback, CFSTR(PreferencesChangedNotification), NULL, CFNotificationSuspensionBehaviorCoalesce);
+	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, PreferencesChangedCallback, PreferencesChangedNotification, NULL, CFNotificationSuspensionBehaviorCoalesce);
 	EPLoader();
 	if (TweakEnabled) {
 		%init;
@@ -1093,6 +1128,8 @@ static void PreferencesChangedCallback(CFNotificationCenterRef center, void *obs
 			%init(iOS7);
 		}
 		else if (isiOS8) {
+			dlopen("/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/PhotoLibraryServices", RTLD_LAZY);
+			dlopen("/System/Library/Frameworks/PhotosUI.framework/PhotosUI", RTLD_LAZY);
 			%init(iOS8);
 		}
 	}

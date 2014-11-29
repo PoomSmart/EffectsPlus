@@ -5,7 +5,6 @@
 #import <Preferences/PSSpecifier.h>
 #import <Preferences/PSTableCell.h>
 #import <Social/Social.h>
-#import <notify.h>
 
 #include <objc/runtime.h>
 #include <sys/sysctl.h>
@@ -291,7 +290,7 @@ static NSBundle *epBundle()
 	prefDict[ENABLED_EFFECT] = _enabledEffects.array;
 	prefDict[DISABLED_EFFECT] = _disabledEffects.array;
 	[prefDict.copy writeToFile:PREF_PATH atomically:YES];
-	notify_post(PreferencesChangedNotification);
+	CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), PreferencesChangedNotification, NULL, NULL, YES);
 }
 
 - (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)fromIndexPath toIndexPath:(NSIndexPath *)toIndexPath
@@ -387,6 +386,15 @@ static BOOL filterFit(NSUInteger filterCount)
 		[enabledIndexArray addObject:enabledIndexPath];
 		UITableViewCell *enabledCell = [self.tableView cellForRowAtIndexPath:enabledIndexPath];
 		enabledCell.textLabel.textColor = filterFit(enabledIndexCount) ? fitColor : [UIColor blackColor];
+		if (isiOS8Up) {
+			BOOL modern = !boolValueForKey(@"useOldEditor", NO);
+			if (modern) {
+				NSString *effectName = _enabledEffects[i];
+				BOOL isCINone = [effectName isEqualToString:CINoneName];
+				if ([effectsThatNotSupportedModernEditor() containsObject:effectName] && !isCINone)
+					enabledCell.textLabel.textColor = [UIColor systemRedColor];
+			}
+		}
 	}
 	NSMutableArray *disabledIndexArray = [NSMutableArray array];
 	NSUInteger disabledIndexCount =  [self.tableView numberOfRowsInSection:1];
@@ -424,12 +432,18 @@ static BOOL filterFit(NSUInteger filterCount)
 	cell.textLabel.textColor = filterFit(_enabledEffects.count) && index0 ? fitColor : [UIColor blackColor];
 	if (filterCount - 1 >= indexPath.row) {
 		NSString *effectName = [effectDict objectAtIndex:indexPath.row];
+		BOOL isCINone = [effectName isEqualToString:CINoneName];
+		if (isiOS8Up) {
+			BOOL modern = !boolValueForKey(@"useOldEditor", NO);
+			if ([effectsThatNotSupportedModernEditor() containsObject:effectName] && modern && !isCINone)
+				cell.textLabel.textColor = [UIColor systemRedColor];
+		}
 		[cell.textLabel setText:displayNameFromCIFilterName(effectName)];
 		if ([effectName hasPrefix:@"CIPhotoEffect"]) {
 			[cell setBackgroundColor:stockColor];
 			[[cell imageView] setImage:FilterOn];
 		} else {
-			BOOL pb = [pbArray containsObject:effectName] && ![effectName isEqualToString:CINoneName];
+			BOOL pb = [pbArray containsObject:effectName] && !isCINone;
 			if (pb) {
 				[[cell imageView] setImage:PB];
 				[cell setBackgroundColor:pbColor];
@@ -462,6 +476,24 @@ static BOOL filterFit(NSUInteger filterCount)
 	[self setPreferenceValue:value specifier:spec];
 	[[NSUserDefaults standardUserDefaults] synchronize];
 	[self reloadSpecifier:spec animated:NO];
+}
+
+- (id)readPreferenceValue:(PSSpecifier *)specifier
+{
+	NSDictionary *settings = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+	if (!settings[specifier.properties[@"key"]])
+		return specifier.properties[@"default"];
+	return settings[specifier.properties[@"key"]];
+}
+ 
+- (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier
+{
+	NSMutableDictionary *defaults = [NSMutableDictionary dictionary];
+	[defaults addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:PREF_PATH]];
+	[defaults setObject:value forKey:specifier.properties[@"key"]];
+	[defaults writeToFile:PREF_PATH atomically:YES];
+	CFStringRef post = (CFStringRef)specifier.properties[@"PostNotification"];
+	CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), post, NULL, NULL, YES);
 }
 
 - (NSArray *)specifiers
@@ -498,6 +530,25 @@ static BOOL filterFit(NSUInteger filterCount)
 	[twitter setInitialText:@"#EffectsPlus by @PoomSmart is awesome!"];
 	if (twitter != nil)
 		[[self navigationController] presentViewController:twitter animated:YES completion:nil];
+	[twitter release];
+}
+
+- (id)readPreferenceValue:(PSSpecifier *)specifier
+{
+	NSDictionary *settings = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
+	if (!settings[specifier.properties[@"key"]])
+		return specifier.properties[@"default"];
+	return settings[specifier.properties[@"key"]];
+}
+ 
+- (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier
+{
+	NSMutableDictionary *defaults = [NSMutableDictionary dictionary];
+	[defaults addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:PREF_PATH]];
+	[defaults setObject:value forKey:specifier.properties[@"key"]];
+	[defaults writeToFile:PREF_PATH atomically:YES];
+	CFStringRef post = (CFStringRef)specifier.properties[@"PostNotification"];
+	CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), post, NULL, NULL, YES);
 }
 
 - (id)init
@@ -585,7 +636,7 @@ static void writeIntegerValueForKey(int value, NSString *key)
 - (void)modeAction:(UISegmentedControl *)segment
 {
 	writeIntegerValueForKey(segment.selectedSegmentIndex + 1, saveMode);
-	notify_post(PreferencesChangedNotification);
+	CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), PreferencesChangedNotification, NULL, NULL, YES);
 	[[NSNotificationCenter defaultCenter] postNotificationName:updateFooterNotification object:nil userInfo:nil];
 }
 

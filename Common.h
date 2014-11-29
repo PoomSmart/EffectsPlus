@@ -1,7 +1,7 @@
 #import "../PS.h"
 
-#define PREF_PATH [NSHomeDirectory() stringByAppendingPathComponent:@"/Library/Preferences/com.PS.EffectsPlus.plist"]
-#define PreferencesChangedNotification "com.PS.EffectsPlus.prefs"
+NSString *const PREF_PATH = @"/var/mobile/Library/Preferences/com.PS.EffectsPlus.plist";
+CFStringRef const PreferencesChangedNotification = CFSTR("com.PS.EffectsPlus.prefs");
 #define kFontSize 14
 #define NORMAL_EFFECT_COUNT 8
 #define EXTRA_EFFECT_COUNT 25
@@ -322,8 +322,30 @@ static NSDictionary *prefDict()
 	return [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 }
 
+static BOOL boolValueForKey(NSString *key, BOOL defaultValue)
+{
+	NSDictionary *pref = prefDict();
+	return pref[key] ? [pref[key] boolValue] : defaultValue;
+}
+
 static int integerValueForKey(NSString *key, int defaultValue)
 {
 	NSDictionary *pref = prefDict();
 	return pref[key] ? [pref[key] intValue] : defaultValue;
+}
+
+static NSMutableArray *effectsThatNotSupportedModernEditor()
+{
+	NSMutableArray *array = [NSMutableArray array];
+	[array addObject:CINoneName];
+	[array addObject:@"CIMirror"];
+	[array addObject:@"CITriangleKaleidoscope"];
+	[array addObject:@"CILightTunnel"];
+	[array addObject:@"CIPinchDistortion"];
+	[array addObject:@"CITwirlDistortion"];
+	[array addObject:@"CIStretch"];
+	[array addObject:@"CIWrapMirror"];
+	[array addObject:@"CIHoleDistortion"];
+	[array addObject:@"CICircleSplashDistortion"];
+	return array;
 }
