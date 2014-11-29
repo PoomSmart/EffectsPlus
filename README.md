@@ -3,7 +3,9 @@ Effects+
 
 More filters for Camera & Photos app.
 
-Requires iOS 7
+Requires iOS 7+
+
+MIT License.
 
 Screenshots
 ==========
