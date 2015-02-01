@@ -435,8 +435,10 @@ static BOOL filterFit(NSUInteger filterCount)
 		BOOL isCINone = [effectName isEqualToString:CINoneName];
 		if (isiOS8Up) {
 			BOOL modern = !boolValueForKey(@"useOldEditor", NO);
-			if ([effectsThatNotSupportedModernEditor() containsObject:effectName] && modern && !isCINone)
-				cell.textLabel.textColor = [UIColor systemRedColor];
+			if ([effectsThatNotSupportedModernEditor() containsObject:effectName] && modern && !isCINone) {
+				if (index0)
+					cell.textLabel.textColor = [UIColor systemRedColor];
+			}
 		}
 		[cell.textLabel setText:displayNameFromCIFilterName(effectName)];
 		if ([effectName hasPrefix:@"CIPhotoEffect"]) {

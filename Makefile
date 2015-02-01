@@ -1,3 +1,5 @@
+SDKVERSION = 7.0
+
 include theos/makefiles/common.mk
 
 AGGREGATE_NAME = EffectsPlusTweak

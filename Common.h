@@ -274,6 +274,15 @@ extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment
 - (NSString *)CIFilterName;
 @end
 
+/*@interface PUPhotoBrowserController : NSObject
+- (void)photoEditController:(PUPhotoEditViewController *)controller didFinishWithSavedChanges:(BOOL)change;
+@end
+
+@interface PUPhotoEditViewController : NSObject
+- (PUPhotoBrowserController *)delegate;
+- (void)_handleDoneButton:(id)arg1;
+@end*/
+
 static NSString *displayNameFromCIFilterName(NSString *name)
 {
 	#define EPReturn1(name1, name2) if ([name isEqualToString:name2]) return name1
