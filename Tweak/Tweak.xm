@@ -1066,7 +1066,6 @@ static void EPLoader()
 static void PreferencesChangedCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
 {
 	system("killall Camera MobileSlideShow");
-	system("launchctl kickstart -k system/com.apple.assetsd");
 	EPLoader();
 }
 

@@ -511,6 +511,7 @@ static BOOL filterFit(NSUInteger filterCount)
 
 @interface EffectsPlusPrefController : PSListController
 @property (nonatomic, retain) PSSpecifier *oldEditorSpec;
+@property (nonatomic, retain) PSSpecifier *asSpec;
 @property (nonatomic, retain) PSSpecifier *footerSpec;
 @end
 
@@ -524,6 +525,11 @@ static BOOL filterFit(NSUInteger filterCount)
 - (void)twitter:(id)param
 {
 	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:PS_TWITTER_URL]];
+}
+
+- (void)reloadAS:(id)param
+{
+	system("launchctl kickstart -k system/com.apple.assetsd");
 }
 
 - (void)love
@@ -577,10 +583,14 @@ static BOOL filterFit(NSUInteger filterCount)
 				self.footerSpec = spec;
 			else if ([Id isEqualToString:@"oldEditor"])
 				self.oldEditorSpec = spec;
+			else if ([Id isEqualToString:@"as"])
+				self.asSpec = spec;
 		}
 		[self updateFooter:nil];	
-		if (!isiOS8)
+		if (!isiOS8) {
 			[specs removeObject:self.oldEditorSpec];
+			[specs removeObject:self.asSpec];
+		}
 			
 		_specifiers = [specs copy];
   	}
