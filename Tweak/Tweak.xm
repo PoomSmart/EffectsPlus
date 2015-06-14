@@ -34,7 +34,7 @@ static CGFloat CILineScreen_inputAngle, CILineScreen_inputWidth, CILineScreen_in
 static CGFloat CIMirror_inputAngle;
 
 static CGFloat qualityFactor;
-static int mode = 1;
+static int mode;
 
 static NSArray *enabledArray = nil;
 static PLProgressHUD *epHUD = nil;
@@ -65,8 +65,10 @@ static inline CIImage *ciImageInternalFixIfNecessary(CIImage *outputImage, CIFil
 
 static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inputDict)
 {
-	NSMutableDictionary *mutableInputDict = [inputDict mutableCopy];
-	NSMutableArray *filterCategoriesArray = [mutableInputDict[@"CIAttributeFilterCategories"] mutableCopy];
+	NSMutableDictionary *mutableInputDict = [NSMutableDictionary dictionary];
+	[mutableInputDict addEntriesFromDictionary:inputDict];
+	NSMutableArray *filterCategoriesArray = [NSMutableArray array];
+	[filterCategoriesArray addObjectsFromArray:mutableInputDict[@"CIAttributeFilterCategories"]];
 	if (filterCategoriesArray == nil)
 		return inputDict;
 	if (![filterCategoriesArray containsObject:@"CICategoryXMPSerializable"])
@@ -95,7 +97,8 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 
 + (NSArray *)filterNamesInCategories:(NSArray *)categories
 {
-	NSMutableArray *orig = [%orig mutableCopy];
+	NSMutableArray *orig = [NSMutableArray array];
+	[orig addObjectsFromArray:%orig];
 	if (orig != nil) {
 		[orig addObject:CINoneName];
 	}
@@ -105,7 +108,7 @@ static inline NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inp
 - (NSString *)_serializedXMPString
 {
 	NSString *name = %orig;
-	return name == nil ? [self name] : name;
+	return name == nil ? self.name : name;
 }
 
 %end
@@ -473,7 +476,8 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 
 + (CIImage *)outputImageFromFilters:(NSArray *)filters inputImage:(CIImage *)image orientation:(UIImageOrientation)orientation copyFiltersFirst:(BOOL)copyFirst
 {
-	if ([filters count] == 0)
+	NSUInteger filtersCount = filters.count;
+	if (filtersCount == 0)
 		return %orig;
 	internalBlurHook = YES;
 	globalFilterHook = YES;
@@ -483,9 +487,10 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 			effectCorrection(filter, extent, orientation);
 	}
 
-	NSMutableArray *mutableFiltersArray = [filters mutableCopy];
-	if ([filters count] > 1) {
-		for (NSUInteger i = 0; i < [filters count]; i++) {
+	NSMutableArray *mutableFiltersArray = [NSMutableArray array];
+	[mutableFiltersArray addObjectsFromArray:filters];
+	if (filtersCount > 1) {
+		for (NSUInteger i = 0; i < filters.count; i++) {
 			if (![(CIFilter *)mutableFiltersArray[i] respondsToSelector:@selector(_outputProperties)]) {
 				if (i != 0) {
 					[mutableFiltersArray insertObject:mutableFiltersArray[i] atIndex:0];
@@ -537,21 +542,21 @@ static void configEffect(CIFilter *filter)
 	}
 }
 
-static void _addCIEffect(NSString *displayName, NSString *filterName, NSObject *manager)
+static void _addCIEffect(NSString *displayName, NSString *filterName, NSObject <effectFilterManagerDelegate> *manager)
 {
 	CIFilter *filter = [CIFilter filterWithName:filterName];
 	if (![MSHookIvar<NSMutableArray *>(manager, "_effects") containsObject:filter]) {
 		configEffect(filter);
-		[(id)manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
+		[manager _addEffectNamed:displayName aggdName:[displayName lowercaseString] filter:filter];
 	}
 }
 
-static void addExtraSortedEffects(NSObject *effectFilterManager)
+static void addExtraSortedEffects(NSObject <effectFilterManagerDelegate> *effectFilterManager)
 {
 	#define addCIEffect(arg) _addCIEffect(displayNameFromCIFilterName(arg), arg, effectFilterManager)
 	NSDictionary *prefDict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
 	if (prefDict != nil) {
-		NSMutableArray *effects = [prefDict[ENABLED_EFFECT] mutableCopy];
+		NSArray *effects = prefDict[ENABLED_EFFECT];
 		if (effects == nil)
 			return;
 		
@@ -561,8 +566,7 @@ static void addExtraSortedEffects(NSObject *effectFilterManager)
 		[allEffects removeAllObjects];
 		[names removeAllObjects];
 		[aggdNames removeAllObjects];
-		
-		for (NSUInteger i = 0; i < [effects count]; i++) {
+		for (NSUInteger i = 0; i < effects.count; i++) {
 			NSString *string = effects[i];
 			addCIEffect(string);
 		}
@@ -603,12 +607,12 @@ static void showFilterSelectionAlert(id self)
 
 %hook PLEffectsGridView
 
-- (NSUInteger)_filterIndexForGridIndex:(unsigned)index
+- (NSUInteger)_filterIndexForGridIndex:(NSUInteger)index
 {
 	return [self isBlackAndWhite] ? index + [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 }
 
-- (NSUInteger)_gridIndexForFilterIndex:(unsigned)index
+- (NSUInteger)_gridIndexForFilterIndex:(NSUInteger)index
 {
 	return [self isBlackAndWhite] ? index - [[%c(PLEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 }
@@ -630,7 +634,7 @@ static void showFilterSelectionAlert(id self)
 	NSUInteger orig = %orig;
 	if (FillGrid)
 		return orig;
-	return enabledArray != nil ? [enabledArray count] : orig;
+	return enabledArray != nil ? enabledArray.count : orig;
 }
 
 - (void)_updatePixelBufferPoolForSize:(CGSize)size
@@ -652,11 +656,7 @@ static void showFilterSelectionAlert(id self)
 	%orig;
 	CIFilter *currentFilter = [[%c(PLEffectFilterManager) sharedInstance] filterForIndex:[[%c(PLCameraController) sharedInstance] _activeFilterIndex]];
 	CAMFilterButton *filterButton = MSHookIvar<CAMFilterButton *>(self, "__filterButton");
-	BOOL shouldOn;
-	if (currentFilter == nil)
-		shouldOn = NO;
-	else
-		shouldOn = ![currentFilter.name isEqualToString:CINoneName];
+	BOOL shouldOn = currentFilter == nil ? NO : ![currentFilter.name isEqualToString:CINoneName];
 	[filterButton setOn:shouldOn];
 }
 
@@ -664,10 +664,8 @@ static void showFilterSelectionAlert(id self)
 {
 	%orig;
 	if (AutoHideBB) {
-		if (self._bottomBar != nil)
-			self._bottomBar.hidden = showEffectsGrid;
-		if (self._topBar != nil)
-			self._topBar.hidden = showEffectsGrid;
+		self._bottomBar.hidden = showEffectsGrid;
+		self._topBar.hidden = showEffectsGrid;
 	}
 }
 
@@ -696,7 +694,7 @@ static void showFilterSelectionAlert(id self)
 	%log;
 	if (filter != nil) {
 		NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
-		for (NSUInteger i = 0; i < [filters count]; i++) {
+		for (NSUInteger i = 0; i < filters.count; i++) {
 			if ([((CIFilter *)filters[i]).name isEqualToString:filter.name]) {
 				[self _setSelectedIndexPath:[NSIndexPath indexPathForItem:i inSection:1]];
 				return;
@@ -726,12 +724,12 @@ static void showFilterSelectionAlert(id self)
 
 %hook CAMEffectsGridView
 
-- (NSUInteger)_filterIndexForGridIndex:(unsigned)index
+- (NSUInteger)_filterIndexForGridIndex:(NSUInteger)index
 {
 	return [self isBlackAndWhite] ? index + [[%c(CAMEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 }
 
-- (NSUInteger)_gridIndexForFilterIndex:(unsigned)index
+- (NSUInteger)_gridIndexForFilterIndex:(NSUInteger)index
 {
 	return [self isBlackAndWhite] ? index - [[%c(CAMEffectFilterManager) sharedInstance] blackAndWhiteFilterStartIndex] : index;
 }
@@ -753,7 +751,7 @@ static void showFilterSelectionAlert(id self)
 	NSUInteger orig = %orig;
 	if (FillGrid)
 		return orig;
-	return enabledArray != nil ? [enabledArray count] : orig;
+	return enabledArray != nil ? enabledArray.count : orig;
 }
 
 %end
@@ -765,22 +763,16 @@ static void showFilterSelectionAlert(id self)
 	%orig;
 	CIFilter *currentFilter = [[%c(CAMEffectFilterManager) sharedInstance] filterForIndex:[[%c(CAMCaptureController) sharedInstance] _activeFilterIndex]];
 	CAMFilterButton *filterButton = MSHookIvar<CAMFilterButton *>(self, "__filterButton");
-	BOOL shouldOn;
-	if (currentFilter == nil)
-		shouldOn = NO;
-	else
-		shouldOn = ![currentFilter.name isEqualToString:CINoneName];
-	[filterButton setOn:shouldOn];
+	BOOL shouldOn = currentFilter == nil ? NO : ![currentFilter.name isEqualToString:CINoneName];
+	filterButton.on = shouldOn;
 }
 
 - (void)cameraController:(id)controller didStartTransitionToShowEffectsGrid:(BOOL)showEffectsGrid animated:(BOOL)animated
 {
 	%orig;
 	if (AutoHideBB) {
-		if (self._bottomBar != nil)
-			self._bottomBar.hidden = showEffectsGrid;
-		if (self._topBar != nil)
-			self._topBar.hidden = showEffectsGrid;
+		self._bottomBar.hidden = showEffectsGrid;
+		self._topBar.hidden = showEffectsGrid;
 	}
 }
 
@@ -808,7 +800,7 @@ static void showFilterSelectionAlert(id self)
 {
 	if (filter != nil) {
 		NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
-		for (NSUInteger i = 0; i < [filters count]; i++) {
+		for (NSUInteger i = 0; i < filters.count; i++) {
 			if ([((CIFilter *)[filters objectAtIndex:i]).name isEqualToString:filter.name]) {
 				[self _setSelectedIndexPath:[NSIndexPath indexPathForItem:i inSection:1]];
 				return;
@@ -848,7 +840,7 @@ static NSMutableArray *effectsForiOS8()
 		NSMutableArray *ourCamEffects = [NSMutableArray arrayWithArray:camEffects];
 		if (![[%c(PUPhotoEditProtoSettings) sharedInstance] useOldPhotosEditor2]) {
 			NSMutableArray *camEffectsToBeRemoved = [NSMutableArray array];
-			for (NSUInteger i = 0; i < [ourCamEffects count]; i++) {
+			for (NSUInteger i = 0; i < ourCamEffects.count; i++) {
 				CIFilter *noneFilter = ourCamEffects[i];
 				NSString *noneFilterName = noneFilter.name;
 				if ([effectsThatNotSupportedModernEditor() containsObject:noneFilterName])
@@ -887,7 +879,7 @@ static NSMutableArray *effectsForiOS8()
 {
 	PLPhotoEffect *targetEffect = nil;
 	NSArray *allEffects = effectsForiOS8();
-	for (NSUInteger i = 0; i < [allEffects count]; i++) {
+	for (NSUInteger i = 0; i < allEffects.count; i++) {
 		PLPhotoEffect *effect = allEffects[i];
 		NSString *effectFilterName = [effect CIFilterName];
 		if ([effectFilterName isEqualToString:filterName]) {
@@ -902,7 +894,7 @@ static NSMutableArray *effectsForiOS8()
 {
 	NSUInteger index = 0;
 	NSArray *allEffects = effectsForiOS8();
-	for (NSUInteger i = 0; i < [allEffects count]; i++) {
+	for (NSUInteger i = 0; i < allEffects.count; i++) {
 		PLPhotoEffect *effect = allEffects[i];
 		NSString *effectIdentifier = [effect filterIdentifier];
 		if ([effectIdentifier isEqualToString:identifier]) {
@@ -966,19 +958,20 @@ static NSMutableArray *effectsForiOS8()
 - (void)EPSavePhoto
 {
 	PLManagedAsset *asset = MSHookIvar<PLManagedAsset *>(self, "_editedPhoto");
-	NSString *actualImagePath = isiOS8 ? [asset pathForOriginalFile] : [asset pathForImageFile];
+	NSString *actualImagePath = isiOS8 ? asset.pathForOriginalFile : asset.pathForImageFile;
 	UIImage *actualImage = [UIImage imageWithContentsOfFile:actualImagePath];
-	NSMutableArray *effectFilters = [[self _currentNonGeometryFiltersWithEffectFilters:MSHookIvar<NSArray *>(self, "_effectFilters")] mutableCopy];
+	NSMutableArray *effectFilters = [NSMutableArray array];
+	[effectFilters addObjectsFromArray:[self _currentNonGeometryFiltersWithEffectFilters:MSHookIvar<NSArray *>(self, "_effectFilters")]];
 	CIImage *ciImage = [self _newCIImageFromUIImage:actualImage];
 	
 	// Fixing image orientation, still dirt (?)
 	int orientation = 1;
-	float rotation = MSHookIvar<float>(self, "_rotationAngle");
-	float angle = rotation;
+	CGFloat rotation = MSHookIvar<CGFloat>(self, "_rotationAngle");
+	CGFloat angle = rotation;
 	
 	if (angle > 6)
-		angle = fmodf(rotation, 6.28319);
-	if (round(abs(angle)) == 3)
+		angle = fmodf(rotation, 2*M_PI);
+	if (round(fabs(angle)) == 3)
 		orientation = 3;
 	else if (round(angle) == 2)
 		orientation = 8;
@@ -1022,44 +1015,44 @@ static void EPLoader()
 	oldEditor = [dict[@"useOldEditor"] boolValue];
 	#define readFloat(val, defaultVal) \
 		val = dict[[NSString stringWithUTF8String:#val]] ? [dict[[NSString stringWithUTF8String:#val]] floatValue] : defaultVal;
-	readFloat(CIColorMonochrome_R, 0.5)
-	readFloat(CIColorMonochrome_G, 0.6)
-	readFloat(CIColorMonochrome_B, 0.7)
-	readFloat(CIFalseColor_R1, 0.2)
-	readFloat(CIFalseColor_G1, 0.3)
-	readFloat(CIFalseColor_B1, 0.5)
-	readFloat(CIFalseColor_R2, 0.6)
-	readFloat(CIFalseColor_G2, 0.8)
-	readFloat(CIFalseColor_B2, 0.9)
-	readFloat(CISepiaTone_inputIntensity, 1)
-	readFloat(CIVibrance_inputAmount, 1)
-	readFloat(CIColorMonochrome_inputIntensity, 1)
-	readFloat(CIColorPosterize_inputLevels, 6)
-	readFloat(CIGloom_inputRadius, 10)
-	readFloat(CIGloom_inputIntensity, 1)
-	readFloat(CIBloom_inputRadius, 10)
-	readFloat(CIBloom_inputIntensity, 1)
-	readFloat(CISharpenLuminance_inputSharpness, .4)
-	readFloat(CIPixellate_inputScale, 8)
-	readFloat(CIGaussianBlur_inputRadius, 10)
-	readFloat(CITwirlDistortion_inputRadius, 200)
-	readFloat(CITwirlDistortion_inputAngle, 3.14)
-	readFloat(CITriangleKaleidoscope_inputSize, 300)
-	readFloat(CITriangleKaleidoscope_inputDecay, 0.85)
-	readFloat(CIPinchDistortion_inputRadius, 200)
-	readFloat(CIPinchDistortion_inputScale, 0.5)
-	readFloat(CILightTunnel_inputRadius, 90)
-	readFloat(CILightTunnel_inputRotation, 0)
-	readFloat(CIHoleDistortion_inputRadius, 150)
-	readFloat(CICircleSplashDistortion_inputRadius, 150)
-	readFloat(CICircularScreen_inputWidth, 6)
-	readFloat(CICircularScreen_inputSharpness, 0.7)
-	readFloat(CILineScreen_inputAngle, 0)
-	readFloat(CILineScreen_inputWidth, 6)
-	readFloat(CILineScreen_inputSharpness, 0.7)
-	readFloat(CIMirror_inputAngle, 0.0)
+	readFloat(CIColorMonochrome_R, 0.5f)
+	readFloat(CIColorMonochrome_G, 0.6f)
+	readFloat(CIColorMonochrome_B, 0.7f)
+	readFloat(CIFalseColor_R1, 0.2f)
+	readFloat(CIFalseColor_G1, 0.3f)
+	readFloat(CIFalseColor_B1, 0.5f)
+	readFloat(CIFalseColor_R2, 0.6f)
+	readFloat(CIFalseColor_G2, 0.8f)
+	readFloat(CIFalseColor_B2, 0.9f)
+	readFloat(CISepiaTone_inputIntensity, 1.0f)
+	readFloat(CIVibrance_inputAmount, 1.0f)
+	readFloat(CIColorMonochrome_inputIntensity, 1.0f)
+	readFloat(CIColorPosterize_inputLevels, 6.0f)
+	readFloat(CIGloom_inputRadius, 10.0f)
+	readFloat(CIGloom_inputIntensity, 1.0f)
+	readFloat(CIBloom_inputRadius, 10.0f)
+	readFloat(CIBloom_inputIntensity, 1.0f)
+	readFloat(CISharpenLuminance_inputSharpness, 0.4f)
+	readFloat(CIPixellate_inputScale, 8.0f)
+	readFloat(CIGaussianBlur_inputRadius, 10.0f)
+	readFloat(CITwirlDistortion_inputRadius, 200.0f)
+	readFloat(CITwirlDistortion_inputAngle, 3.14f)
+	readFloat(CITriangleKaleidoscope_inputSize, 300.0f)
+	readFloat(CITriangleKaleidoscope_inputDecay, 0.85f)
+	readFloat(CIPinchDistortion_inputRadius, 200.0f)
+	readFloat(CIPinchDistortion_inputScale, 0.5f)
+	readFloat(CILightTunnel_inputRadius, 90.0f)
+	readFloat(CILightTunnel_inputRotation, 0.0f)
+	readFloat(CIHoleDistortion_inputRadius, 150.0f)
+	readFloat(CICircleSplashDistortion_inputRadius, 150.0f)
+	readFloat(CICircularScreen_inputWidth, 6.0f)
+	readFloat(CICircularScreen_inputSharpness, 0.7f)
+	readFloat(CILineScreen_inputAngle, 0.0f)
+	readFloat(CILineScreen_inputWidth, 6.0f)
+	readFloat(CILineScreen_inputSharpness, 0.7f)
+	readFloat(CIMirror_inputAngle, 0.0f)
 	
-	readFloat(qualityFactor, 1)
+	readFloat(qualityFactor, 1.0f)
 	mode = integerValueForKey(saveMode, 1);
 }
 
@@ -1076,13 +1069,13 @@ static void PreferencesChangedCallback(CFNotificationCenterRef center, void *obs
 	EPLoader();
 	if (TweakEnabled) {
 		%init;
-		if (isiOS7) {
-			%init(iOS7);
-		}
-		else if (isiOS8) {
+		if (isiOS8) {
 			dlopen("/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/PhotoLibraryServices", RTLD_LAZY);
 			dlopen("/System/Library/Frameworks/PhotosUI.framework/PhotosUI", RTLD_LAZY);
 			%init(iOS8);
+		}
+		else if (isiOS7) {
+			%init(iOS7);
 		}
 	}
 	[pool drain];

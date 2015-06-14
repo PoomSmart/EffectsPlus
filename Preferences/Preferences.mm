@@ -13,18 +13,7 @@ UIColor *fitColor = [UIColor systemBlueColor];
 NSString *const updateFooterNotification = @"com.PS.EffectsPlus.prefs.footerUpdate";
 
 @interface PSViewController (EffectsPlus)
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath;
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section;
-- (void)viewDidLoad;
 - (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex;
-@end
-
-@interface UITableViewCell (EffectsPlus)
-- (id)initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)identifier;
-@end
-
-@interface PSTableCell (EffectsPlus)
-- (id)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)identifier specifier:(PSSpecifier *)specifier;
 @end
 
 @interface EffectsPlusFiltersSelectionController : PSViewController
@@ -36,6 +25,12 @@ NSString *const updateFooterNotification = @"com.PS.EffectsPlus.prefs.footerUpda
 	NSMutableOrderedSet *_disabledEffects;
 }
 @end
+
+static BOOL boolValueForKey(NSString *key, BOOL defaultValue)
+{
+	NSDictionary *pref = prefDict();
+	return pref[key] ? [pref[key] boolValue] : defaultValue;
+}
 
 static NSBundle *epBundle()
 {
@@ -198,7 +193,7 @@ static NSBundle *epBundle()
 - (void)setReorderColor:(UIColor *)color forCell:(UITableViewCell *)cell
 {
 	for (UIView *view in cell.subviews) {
-		if (isiOS8) {
+		if (isiOS8Up) {
 			if ([[[view class] description] isEqualToString:@"UITableViewCellReorderControl"]) {
 				for (UIImageView *reorderIcon in view.subviews) {
 					UIImage *defaultIcon = reorderIcon.image;
@@ -284,9 +279,8 @@ static NSBundle *epBundle()
 
 - (void)saveSettings
 {
-	NSMutableDictionary *prefDict = [[NSDictionary dictionaryWithContentsOfFile:PREF_PATH] mutableCopy];
-	if (prefDict == nil)
-		prefDict = [NSMutableDictionary dictionary];
+	NSMutableDictionary *prefDict = [NSMutableDictionary dictionary];
+	[prefDict addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:PREF_PATH]];
 	prefDict[ENABLED_EFFECT] = _enabledEffects.array;
 	prefDict[DISABLED_EFFECT] = _disabledEffects.array;
 	[prefDict.copy writeToFile:PREF_PATH atomically:YES];
@@ -409,7 +403,7 @@ static BOOL filterFit(NSUInteger filterCount)
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
 	BOOL index0 = indexPath.section == 0;
-	NSString *CellIdentifier = index0 ? [_enabledEffects.array objectAtIndex:indexPath.row] : [_disabledEffects.array objectAtIndex:indexPath.row];
+	NSString *CellIdentifier = index0 ? _enabledEffects.array[indexPath.row] : _disabledEffects.array[indexPath.row];
 	UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
 	UIColor *stockColor = [UIColor colorWithRed:0.8 green:0.9 blue:0.9 alpha:1];
 	UIColor *pbColor = [UIColor colorWithRed:1 green:0.8 blue:0.8 alpha:1];
@@ -422,8 +416,8 @@ static BOOL filterFit(NSUInteger filterCount)
 	
 	if (cell == nil) {
 		cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:CellIdentifier] autorelease];
-		[cell.textLabel setNumberOfLines:1];
-		[cell.textLabel setBackgroundColor:[UIColor clearColor]];
+		cell.textLabel.numberOfLines = 1;
+		cell.textLabel.backgroundColor = [UIColor clearColor];
 		cell.textLabel.textColor = [UIColor blackColor];
 	}
 
@@ -431,7 +425,7 @@ static BOOL filterFit(NSUInteger filterCount)
 	NSUInteger filterCount = effectDict.count;
 	cell.textLabel.textColor = filterFit(_enabledEffects.count) && index0 ? fitColor : [UIColor blackColor];
 	if (filterCount - 1 >= indexPath.row) {
-		NSString *effectName = [effectDict objectAtIndex:indexPath.row];
+		NSString *effectName = effectDict[indexPath.row];
 		BOOL isCINone = [effectName isEqualToString:CINoneName];
 		if (isiOS8Up) {
 			BOOL modern = !boolValueForKey(@"useOldEditor", NO);
@@ -440,18 +434,18 @@ static BOOL filterFit(NSUInteger filterCount)
 					cell.textLabel.textColor = [UIColor systemRedColor];
 			}
 		}
-		[cell.textLabel setText:displayNameFromCIFilterName(effectName)];
+		cell.textLabel.text = displayNameFromCIFilterName(effectName);
 		if ([effectName hasPrefix:@"CIPhotoEffect"]) {
-			[cell setBackgroundColor:stockColor];
-			[[cell imageView] setImage:FilterOn];
+			cell.backgroundColor = stockColor;
+			cell.imageView.image = FilterOn;
 		} else {
 			BOOL pb = [pbArray containsObject:effectName] && !isCINone;
 			if (pb) {
-				[[cell imageView] setImage:PB];
-				[cell setBackgroundColor:pbColor];
+				cell.imageView.image = PB;
+				cell.backgroundColor = pbColor;
 			} else {
-				[[cell imageView] setImage:Filter];
-				[cell setBackgroundColor:[UIColor clearColor]];
+				cell.imageView.image = Filter;
+				cell.backgroundColor = [UIColor clearColor];
 			}
 		}
 	}
@@ -623,7 +617,8 @@ static BOOL filterFit(NSUInteger filterCount)
 
 static void writeIntegerValueForKey(int value, NSString *key)
 {
-	NSMutableDictionary *dict = [prefDict() mutableCopy] ?: [NSMutableDictionary dictionary];
+	NSMutableDictionary *dict = [NSMutableDictionary dictionary];
+	[dict addEntriesFromDictionary:prefDict()];
 	[dict setObject:@(value) forKey:key];
 	[dict writeToFile:PREF_PATH atomically:YES];
 }

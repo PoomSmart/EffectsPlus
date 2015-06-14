@@ -81,7 +81,7 @@
       		<key>action</key>
       		<string>reloadAS:</string>
       		<key>label</key>
-      		<string>Reload assetsd (photo filters related)</string>
+      		<string>Reload assetsd</string>
       </dict>
         <dict>
 			<key>cell</key>
