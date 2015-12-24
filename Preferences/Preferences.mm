@@ -402,6 +402,15 @@ static BOOL filterFit(NSUInteger filterCount)
 	}
 }
 
+- (NSString *)bundlePath
+{
+	if (isiOS9Up)
+		return @"/System/Library/PrivateFrameworks/CameraUI.framework";
+	if (isiOS8)
+		return @"/System/Library/PrivateFrameworks/CameraKit.framework";
+	return @"/System/Library/PrivateFrameworks/PhotoLibrary.framework";
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
 	BOOL index0 = indexPath.section == 0;
@@ -410,8 +419,7 @@ static BOOL filterFit(NSUInteger filterCount)
 	UIColor *stockColor = [UIColor colorWithRed:0.8 green:0.9 blue:0.9 alpha:1];
 	UIColor *pbColor = [UIColor colorWithRed:1 green:0.8 blue:0.8 alpha:1];
 	NSArray *pbArray = [self arrayByAddingPhotoBooths];
-	NSString *bundlePath = isiOS8 ? @"/System/Library/PrivateFrameworks/CameraKit.framework" : @"/System/Library/PrivateFrameworks/PhotoLibrary.framework";
-	NSBundle *plBundle = [NSBundle bundleWithPath:bundlePath];
+	NSBundle *plBundle = [NSBundle bundleWithPath:self.bundlePath];
 	UIImage *FilterOn = [UIImage imageNamed:@"CAMFilterButtonOn" inBundle:plBundle];
 	UIImage *Filter = [UIImage imageNamed:@"CAMFilterButton" inBundle:plBundle];
 	UIImage *PB = [UIImage imageNamed:@"PB" inBundle:epBundle()];

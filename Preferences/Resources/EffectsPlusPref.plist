@@ -191,10 +191,8 @@
         <key>label</key>
         <string>Developer's notes</string>
         <key>footerText</key>
-        <string>• Multiple filters at once is possible, but not implemented yet. I'm working on this.
-• Mirrors (Filter) should not be applied in large images, too large image size causes system unable to handle it.
-• Photos editing in iOS 8 is not yet stable, anyway, you still can re-edit photos.
-• Saving options feature does not work in the new iOS 8 photos editor.</string>
+        <string>• Mirrors (Filter) should not be applied in large images, too large image size causes system unable to handle it.
+• Saving options feature does not work in the new iOS 8+ photos editor.</string>
       </dict>
       <dict>
         <key>cell</key>
