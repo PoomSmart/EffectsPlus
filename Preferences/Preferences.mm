@@ -1,4 +1,6 @@
 #import "../Common.h"
+#import "../EffectsFunctions.h"
+#import "../Prefs.h"
 #import <UIKit/UIKit.h>
 #import <Preferences/PSViewController.h>
 #import <Preferences/PSListController.h>
@@ -10,7 +12,7 @@
 #include <sys/sysctl.h>
 
 UIColor *fitColor = [UIColor systemBlueColor];
-NSString *const updateFooterNotification = @"com.PS.EffectsPlus.prefs.footerUpdate";
+NSString *updateFooterNotification = @"com.PS.EffectsPlus.prefs.footerUpdate";
 
 @interface PSViewController (EffectsPlus)
 - (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex;
@@ -581,7 +583,7 @@ static BOOL filterFit(NSUInteger filterCount)
 				self.asSpec = spec;
 		}
 		[self updateFooter:nil];	
-		if (!isiOS8) {
+		if (!isiOS8Up) {
 			[specs removeObject:self.oldEditorSpec];
 			[specs removeObject:self.asSpec];
 		}
