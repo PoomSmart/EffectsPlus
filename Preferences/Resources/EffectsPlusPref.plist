@@ -18,8 +18,6 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Effects+</string>
 		</dict>
       <dict>
         	<key>cell</key>
@@ -33,7 +31,9 @@
         	<key>label</key>
         	<string>Enabled</string>
         	<key>PostNotification</key>
-        	<string>com.PS.EffectsPlus.prefs</string>
+        	<string>com.PS.EffectsPlus/ReloadPrefs</string>
+        	<key>set</key>
+       		<string>masterSwitch:specifier:</string>
       </dict>
       <dict>
         	<key>cell</key>
@@ -49,8 +49,14 @@
         	<key>label</key>
         	<string>Old editor</string>
         	<key>PostNotification</key>
-        	<string>com.PS.EffectsPlus.prefs</string>
+        	<string>com.PS.EffectsPlus/ReloadPrefs</string>
+        	<key>set</key>
+       		<string>masterSwitch:specifier:</string>
       </dict>
+      <dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+		</dict>
       <dict>
 			<key>cell</key>
 			<string>PSLinkListCell</string>
@@ -63,48 +69,30 @@
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSTableCell</string>
-			<key>cellClass</key>
-			<string>EPSaveOptionCell</string>
+			<string>PSLinkCell</string>
 			<key>label</key>
-			<string>Saving type</string>
-        	<key>footerAlignment</key>
-        	<integer>0</integer>
-        </dict>
-        <dict>
-      		<key>cell</key>
-      		<string>PSButtonCell</string>
-      		<key>id</key>
-        	<string>as</string>
-      		<key>alignment</key>
-      		<integer>2</integer>
-      		<key>action</key>
-      		<string>reloadAS:</string>
-      		<key>label</key>
-      		<string>Reload assetsd</string>
-      </dict>
+			<string>Filters Settings</string>
+			<key>detail</key>
+			<string>EffectsPlusFiltersSettingsController</string>
+		</dict>
         <dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Saving type</string>
+			<string>Photos saving type</string>
 			<key>id</key>
         	<string>footer</string>
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSGroupCell</string>
+			<string>PSTableCell</string>
+			<key>cellClass</key>
+			<string>EPSaveOptionCell</string>
 			<key>label</key>
-			<string>Configure filters setting</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>label</key>
-			<string>Settings</string>
-			<key>detail</key>
-			<string>EffectsPlusFiltersSettingsController</string>
-		</dict>
+			<string>Type</string>
+        	<key>footerAlignment</key>
+        	<integer>0</integer>
+        </dict>
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
@@ -113,7 +101,7 @@
 			</dict>
 		 <dict>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
@@ -132,6 +120,8 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Miscellaneous</string>
 		</dict>
 		<dict>
         	<key>cell</key>
@@ -145,7 +135,7 @@
         	<key>label</key>
         	<string>Fill effects grid</string>
         	<key>PostNotification</key>
-        	<string>com.PS.EffectsPlus.prefs</string>
+        	<string>com.PS.EffectsPlus/ReloadPrefs</string>
       </dict>
 		<dict>
         	<key>cell</key>
@@ -159,50 +149,59 @@
         	<key>label</key>
         	<string>Auto hide bars</string>
         	<key>PostNotification</key>
-        	<string>com.PS.EffectsPlus.prefs</string>
+        	<string>com.PS.EffectsPlus/ReloadPrefs</string>
       </dict>
       <dict>
       		<key>cell</key>
       		<string>PSGroupCell</string>
-      </dict>
+      	</dict>
       <dict>
       		<key>cell</key>
       		<string>PSButtonCell</string>
+      		<key>id</key>
+        	<string>as</string>
       		<key>alignment</key>
-      		<integer>1</integer>
+      		<integer>2</integer>
       		<key>action</key>
-      		<string>donate:</string>
+      		<string>reloadAS:</string>
       		<key>label</key>
-      		<string>♥ Donate</string>
+      		<string>Reload assetsd</string>
       </dict>
       <dict>
       		<key>cell</key>
-      		<string>PSButtonCell</string>
-      		<key>alignment</key>
-      		<integer>1</integer>
-      		<key>action</key>
-      		<string>twitter:</string>
+      		<string>PSGroupCell</string>
       		<key>label</key>
-      		<string>🔗 Developer's Twitter</string>
-      </dict>
-      <dict>
-        <key>cell</key>
-        <string>PSGroupCell</string>
-        <key>label</key>
-        <string>Developer's notes</string>
-        <key>footerText</key>
-        <string>• Mirrors (Filter) should not be applied in large images, too large image size causes system unable to handle it.
-• Saving options feature does not work in the new iOS 8+ photos editor.</string>
-      </dict>
-      <dict>
-        <key>cell</key>
-        <string>PSGroupCell</string>
-        <key>footerAlignment</key>
-        <integer>1</integer>
-        <key>footerText</key>
-        <string>© 2013 - 2015 Thatchapon Unprasert
+      		<string>Developer</string>
+      		<key>footerAlignment</key>
+		<integer>1</integer>
+		<key>footerText</key>
+		<string>© 2013 - 2016 Thatchapon Unprasert
 (@PoomSmart)</string>
       </dict>
+      <dict>
+    	<key>big</key>
+    	<true/>
+    	<key>cellClass</key>
+		<string>HBTwitterCell</string>
+		<key>height</key>
+		<integer>60</integer>
+		<key>label</key>
+		<string>PoomSmart</string>
+		<key>user</key>
+		<string>PoomSmart</string>
+	</dict>
+      <dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>cellClass</key>
+			<string>HBLinkTableCell</string>
+			<key>label</key>
+			<string>Donate ❤️</string>
+			<key>alignment</key>
+			<integer>1</integer>
+			<key>url</key>
+			<string>http://poomsmartios.blogspot.com/2015/08/donation.html</string>
+		</dict>
     </array>
   </dict>
 </plist>

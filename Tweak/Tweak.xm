@@ -4,6 +4,7 @@
 #import <CoreImage/CIFilter.h>
 #import <ImageIO/ImageIO.h>
 #import <AssetsLibrary/ALAssetsLibrary.h>
+#import <HBPreferences.h>
 
 %hook CIImage
 
@@ -329,12 +330,12 @@ static NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inputDict)
 
 %end
 
-static CGFloat qualityFactor;
-static int mode;
-static NSUInteger ciNoneIndex = NSNotFound;
+CGFloat qualityFactor;
+NSInteger mode;
+NSUInteger ciNoneIndex = NSNotFound;
 
-static NSArray *enabledArray = nil;
-static PLProgressHUD *epHUD = nil;
+NSArray *enabledArray = nil;
+PLProgressHUD *epHUD = nil;
 
 static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 {
@@ -499,7 +500,7 @@ static void addExtraSortedEffects(NSObject <effectFilterManagerDelegate> *effect
 
 static void showFilterSelectionAlert(id self)
 {
-	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Effects+" message:@"ERROR: The selected filter isn't existed in the current library. You have to enable this filter in settings first." delegate:self cancelButtonTitle:@"Ok" otherButtonTitles:nil];
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:tweakName message:@"ERROR: The selected filter isn't existed in the current library. You have to enable this filter in settings first." delegate:self cancelButtonTitle:@"Ok" otherButtonTitles:nil];
 	[alert show];
 	[alert release];
 }
@@ -615,8 +616,7 @@ static void showFilterSelectionAlert(id self)
 
 - (void)setSelectedEffect:(CIFilter *)filter
 {
-	%log;
-	if (filter != nil) {
+	if (filter) {
 		NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
 		for (int i = 0; i < filters.count; i++) {
 			if ([((CIFilter *)filters[i]).name isEqualToString:filter.name]) {
@@ -714,7 +714,7 @@ static void showFilterSelectionAlert(id self)
 
 - (void)setSelectedEffect:(CIFilter *)filter
 {
-	if (filter != nil) {
+	if (filter) {
 		NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
 		for (int i = 0; i < filters.count; i++) {
 			if ([((CIFilter *)[filters objectAtIndex:i]).name isEqualToString:filter.name]) {
@@ -848,6 +848,8 @@ NSMutableArray *cachedEffects = nil;
 }
 
 %end
+
+// CAMCaptureEngine completeLegacyStillImageCaptureRequest:withResult:
 
 %hook CAMEffectsFullsizeView
 
@@ -1057,103 +1059,106 @@ static NSMutableArray *effectsForiOS8()
 
 %end
 
-static void EPLoader(BOOL assetsd)
+static void PreferencesChangedCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
 {
-	NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PREF_PATH];
-	#define readFloat(val, defaultVal) \
-		val = dict[[NSString stringWithUTF8String:#val]] ? [dict[[NSString stringWithUTF8String:#val]] floatValue] : defaultVal;
-	if (!assetsd) {
-		enabledArray = [[dict objectForKey:ENABLED_EFFECT] retain];
-		FillGrid = [dict[@"FillGrid"] boolValue];
-		AutoHideBB = [dict[@"AutoHideBB"] boolValue];
-		oldEditor = [dict[@"useOldEditor"] boolValue];
-		readFloat(qualityFactor, 1.0f)
-		mode = integerValueForKey(saveMode, 1);
-	}
-	TweakEnabled = [dict[@"Enabled"] boolValue];
-	
-	readFloat(CIColorMonochrome_R, 0.5f)
-	readFloat(CIColorMonochrome_G, 0.6f)
-	readFloat(CIColorMonochrome_B, 0.7f)
-	readFloat(CIFalseColor_R1, 0.2f)
-	readFloat(CIFalseColor_G1, 0.3f)
-	readFloat(CIFalseColor_B1, 0.5f)
-	readFloat(CIFalseColor_R2, 0.6f)
-	readFloat(CIFalseColor_G2, 0.8f)
-	readFloat(CIFalseColor_B2, 0.9f)
-	readFloat(CISepiaTone_inputIntensity, 1.0f)
-	readFloat(CIVibrance_inputAmount, 1.0f)
-	readFloat(CIColorMonochrome_inputIntensity, 1.0f)
-	readFloat(CIColorPosterize_inputLevels, 6.0f)
-	readFloat(CIGloom_inputRadius, 10.0f)
-	readFloat(CIGloom_inputIntensity, 1.0f)
-	readFloat(CIBloom_inputRadius, 10.0f)
-	readFloat(CIBloom_inputIntensity, 1.0f)
-	readFloat(CISharpenLuminance_inputSharpness, 0.4f)
-	readFloat(CIPixellate_inputScale, 8.0f)
-	readFloat(CIGaussianBlur_inputRadius, 10.0f)
-	readFloat(CITwirlDistortion_inputRadius, 200.0f)
-	readFloat(CITwirlDistortion_inputAngle, 3.14f)
-	readFloat(CITriangleKaleidoscope_inputSize, 300.0f)
-	readFloat(CITriangleKaleidoscope_inputDecay, 0.85f)
-	readFloat(CIPinchDistortion_inputRadius, 200.0f)
-	readFloat(CIPinchDistortion_inputScale, 0.5f)
-	readFloat(CILightTunnel_inputRadius, 90.0f)
-	readFloat(CILightTunnel_inputRotation, 0.0f)
-	readFloat(CIHoleDistortion_inputRadius, 150.0f)
-	readFloat(CICircleSplashDistortion_inputRadius, 150.0f)
-	readFloat(CICircularScreen_inputWidth, 6.0f)
-	readFloat(CICircularScreen_inputSharpness, 0.7f)
-	readFloat(CILineScreen_inputAngle, 0.0f)
-	readFloat(CILineScreen_inputWidth, 6.0f)
-	readFloat(CILineScreen_inputSharpness, 0.7f)
-	readFloat(CIMirror_inputAngle, 0.0f)
-	
-	if (isiOS9Up && !assetsd) {
-		ciNoneIndex = NSNotFound;
-		if (cachedEffects == nil)
-			cachedEffects = [[NSMutableArray array] retain];
-		else
-			[cachedEffects removeAllObjects];
-		for (int i = 0; i < enabledArray.count; i++) {
-			CIFilter *filter = [[CIFilter filterWithName:enabledArray[i]] retain];
-			if ([filter.name isEqualToString:CINoneName])
-				ciNoneIndex = i;
-			configEffect(filter);
-			[cachedEffects addObject:filter];
-		}
+	ciNoneIndex = NSNotFound;
+	if (cachedEffects == nil)
+		cachedEffects = [[NSMutableArray array] retain];
+	else
+		[cachedEffects removeAllObjects];
+	for (int i = 0; i < enabledArray.count; i++) {
+		CIFilter *filter = [[CIFilter filterWithName:enabledArray[i]] retain];
+		if ([filter.name isEqualToString:CINoneName])
+			ciNoneIndex = i;
+		configEffect(filter);
+		[cachedEffects addObject:filter];
 	}
 }
 
-static void PreferencesChangedCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
+void registerPref_tweak(HBPreferences *preferences, BOOL isAssetsd)
 {
-	system("killall Camera MobileSlideShow");
-	EPLoader(NO);
+	#define _register(val, type, defaultVal, key) \
+		[preferences register ## type: &val default:defaultVal forKey:key];
+	#define _registerBool(val, defaultVal, key) _register(val, Bool, defaultVal, key)
+	#define _registerInteger(val, defaultVal, key) _register(val, Integer, defaultVal, key)
+	#define _registerFloat(val, defaultVal, key) _register(val, Float, defaultVal, key)
+	#define _registerObject(val, defaultVal, key) _register(val, Object, defaultVal, key)
+	if (!isAssetsd) {
+		_registerBool(TweakEnabled, YES, EnabledKey)
+		_registerBool(FillGrid, NO, FillGridKey)
+		_registerBool(AutoHideBB, NO, AutoHideBBKey)
+		_registerBool(oldEditor, NO, useOldEditorKey)
+		_registerInteger(mode, 0, saveModeKey);
+		_registerObject(enabledArray, @[], ENABLED_EFFECT)
+	}
+	#define xyz(val, defaultVal) \
+		_registerFloat(val, defaultVal, val ## Key)
+	xyz(CIColorMonochrome_R, 0.5f)
+	xyz(CIColorMonochrome_G, 0.6f)
+	xyz(CIColorMonochrome_B, 0.7f)
+	xyz(CIFalseColor_R1, 0.2f)
+	xyz(CIFalseColor_G1, 0.3f)
+	xyz(CIFalseColor_B1, 0.5f)
+	xyz(CIFalseColor_R2, 0.6f)
+	xyz(CIFalseColor_G2, 0.8f)
+	xyz(CIFalseColor_B2, 0.9f)
+	xyz(CISepiaTone_inputIntensity, 1.0f)
+	xyz(CIVibrance_inputAmount, 1.0f)
+	xyz(CIColorMonochrome_inputIntensity, 1.0f)
+	xyz(CIColorPosterize_inputLevels, 6.0f)
+	xyz(CIGloom_inputRadius, 10.0f)
+	xyz(CIGloom_inputIntensity, 1.0f)
+	xyz(CIBloom_inputRadius, 10.0f)
+	xyz(CIBloom_inputIntensity, 1.0f)
+	xyz(CISharpenLuminance_inputSharpness, 0.4f)
+	xyz(CIPixellate_inputScale, 8.0f)
+	xyz(CIGaussianBlur_inputRadius, 10.0f)
+	xyz(CITwirlDistortion_inputRadius, 200.0f)
+	xyz(CITwirlDistortion_inputAngle, 3.14f)
+	xyz(CITriangleKaleidoscope_inputSize, 300.0f)
+	xyz(CITriangleKaleidoscope_inputDecay, 0.85f)
+	xyz(CIPinchDistortion_inputRadius, 200.0f)
+	xyz(CIPinchDistortion_inputScale, 0.5f)
+	xyz(CILightTunnel_inputRadius, 90.0f)
+	xyz(CILightTunnel_inputRotation, 0.0f)
+	xyz(CIHoleDistortion_inputRadius, 150.0f)
+	xyz(CICircleSplashDistortion_inputRadius, 150.0f)
+	xyz(CICircularScreen_inputWidth, 6.0f)
+	xyz(CICircularScreen_inputSharpness, 0.7f)
+	xyz(CILineScreen_inputAngle, 0.0f)
+	xyz(CILineScreen_inputWidth, 6.0f)
+	xyz(CILineScreen_inputSharpness, 0.7f)
+	xyz(CIMirror_inputAngle, 0.0f)
 }
+
+HBPreferences *preferences;
 
 %ctor
 {
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	preferences = [[HBPreferences alloc] initWithIdentifier:tweakIdentifier];
+	registerPref(preferences);
 	BOOL isAssetsd = [NSBundle.mainBundle.bundleIdentifier isEqualToString:@"com.apple.assetsd"];
-	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, PreferencesChangedCallback, PreferencesChangedNotification, NULL, CFNotificationSuspensionBehaviorCoalesce);
-	EPLoader(isAssetsd);
+	registerPref_tweak(preferences, isAssetsd);
 	if (TweakEnabled) {
 		if (!isAssetsd) {
-			%init;
 			if (isiOS8Up) {
 				dlopen("/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/PhotoLibraryServices", RTLD_LAZY);
 				dlopen("/System/Library/Frameworks/PhotosUI.framework/PhotosUI", RTLD_LAZY);
 				if (isiOS9Up) {
+					openCamera9();
+					CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, PreferencesChangedCallback, (CFStringRef)HBPreferencesDidChangeNotification, NULL, CFNotificationSuspensionBehaviorCoalesce);
 					%init(iOS9);
 				} else {
+					openCamera8();
 					%init(iOS8);
 				}
 				%init(iOS8Up);
 			}
 			else if (isiOS7) {
+				openCamera7();
 				%init(iOS7);
 			}
+			%init;
 		}
 	}
-	[pool drain];
 }

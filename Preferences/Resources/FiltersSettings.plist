@@ -35,7 +35,7 @@
 			<key>label</key>
 			<string>inputIntensity</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -60,7 +60,7 @@
 			<key>label</key>
 			<string>inputAmount</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -85,7 +85,7 @@
 			<key>label</key>
 			<string>inputIntensity</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -170,7 +170,7 @@
 			<key>label</key>
 			<string>inputLevels</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -195,7 +195,7 @@
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -213,7 +213,7 @@
 			<key>label</key>
 			<string>inputIntensity</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -238,7 +238,7 @@
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -256,7 +256,7 @@
 			<key>label</key>
 			<string>inputIntensity</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -281,7 +281,7 @@
 			<key>label</key>
 			<string>inputSharpness</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -306,7 +306,7 @@
 			<key>label</key>
 			<string>inputScale</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -331,7 +331,7 @@
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -483,7 +483,7 @@
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -501,7 +501,7 @@
 			<key>label</key>
 			<string>inputAngle</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -526,7 +526,7 @@
 			<key>label</key>
 			<string>inputSize</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -544,7 +544,7 @@
 			<key>label</key>
 			<string>inputDecay</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -569,7 +569,7 @@
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -587,7 +587,7 @@
 			<key>label</key>
 			<string>inputScale</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -612,7 +612,7 @@
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -630,7 +630,7 @@
 			<key>label</key>
 			<string>inputRotation</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -655,7 +655,7 @@
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -680,7 +680,7 @@
 			<key>label</key>
 			<string>inputRadius</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -705,7 +705,7 @@
 			<key>label</key>
 			<string>inputWidth</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -723,7 +723,7 @@
 			<key>label</key>
 			<string>inputSharpness</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -748,7 +748,7 @@
 			<key>label</key>
 			<string>inputAngle</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -766,7 +766,7 @@
 			<key>label</key>
 			<string>inputWidth</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -784,7 +784,7 @@
 			<key>label</key>
 			<string>inputSharpness</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 		
 		<dict>
@@ -809,7 +809,7 @@
 			<key>label</key>
 			<string>inputAngle</string>
 			<key>PostNotification</key>
-			<string>com.PS.EffectsPlus.prefs</string>
+			<string>com.PS.EffectsPlus/ReloadPrefs</string>
 		</dict>
 	
     </array>
