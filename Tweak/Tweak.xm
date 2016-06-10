@@ -4,7 +4,6 @@
 #import <CoreImage/CIFilter.h>
 #import <ImageIO/ImageIO.h>
 #import <AssetsLibrary/ALAssetsLibrary.h>
-#import <HBPreferences.h>
 
 %hook CIImage
 
@@ -330,11 +329,6 @@ static NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inputDict)
 
 %end
 
-CGFloat qualityFactor;
-NSInteger mode;
-NSUInteger ciNoneIndex = NSNotFound;
-
-NSArray *enabledArray = nil;
 PLProgressHUD *epHUD = nil;
 
 static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
@@ -436,41 +430,6 @@ static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
 }
 
 %end
-
-static void configEffect(CIFilter *filter)
-{
-	NSString *filterName = filter.name;
-	if ([filterName isEqualToString:@"CIGloom"])
-		[(CIGloom *)filter setInputIntensity:@(CIGloom_inputIntensity)];
-	else if ([filterName isEqualToString:@"CIBloom"])
-		[(CIBloom *)filter setInputIntensity:@(CIBloom_inputIntensity)];
-	else if ([filterName isEqualToString:@"CITwirlDistortion"])
-		[(CITwirlDistortion *)filter setInputAngle:@(M_PI / 2 + CITwirlDistortion_inputAngle)];
-	else if ([filterName isEqualToString:@"CIPinchDistortion"])
-		[(CIPinchDistortion *)filter setInputScale:@(CIPinchDistortion_inputScale)];
-	else if ([filterName isEqualToString:@"CIVibrance"])
-		[(CIVibrance *)filter setInputAmount:@(CIVibrance_inputAmount)];
-	else if ([filterName isEqualToString:@"CISepiaTone"])
-		[(CISepiaTone *)filter setInputIntensity:@(CISepiaTone_inputIntensity)];
-	else if ([filterName isEqualToString:@"CIColorMonochrome"])
-		[(CIColorMonochrome *)filter setInputColor:[CIColor colorWithRed:CIColorMonochrome_R green:CIColorMonochrome_G blue:CIColorMonochrome_B]];
-	else if ([filterName isEqualToString:@"CIFalseColor"]) {
-		CIColor *color0 = [CIColor colorWithRed:CIFalseColor_R1 green:CIFalseColor_G1 blue:CIFalseColor_B1];
-		CIColor *color1 = [CIColor colorWithRed:CIFalseColor_R2 green:CIFalseColor_G2 blue:CIFalseColor_B2];
-		[(CIFalseColor *)filter setInputColor0:color0];
-		[(CIFalseColor *)filter setInputColor1:color1];
-	}
-	else if ([filterName isEqualToString:@"CILightTunnel"])
-		[(CILightTunnel *)filter setInputRotation:@(CILightTunnel_inputRotation)];
-	else if ([filterName isEqualToString:@"CICircularScreen"]) {
-		[(CICircularScreen *)filter setInputWidth:@(CICircularScreen_inputWidth)];
-		[(CICircularScreen *)filter setInputSharpness:@(CICircularScreen_inputSharpness)];
-	}
-	else if ([filterName isEqualToString:@"CILineScreen"]) {
-		[(CILineScreen *)filter setInputAngle:@(CILineScreen_inputAngle)];
-		[(CILineScreen *)filter setInputSharpness:@(CILineScreen_inputSharpness)];
-	}
-}
 
 static void _addCIEffect(NSString *displayName, NSString *filterName, NSObject <effectFilterManagerDelegate> *manager)
 {
@@ -747,7 +706,6 @@ static void showFilterSelectionAlert(id self)
 
 %group iOS9
 
-NSMutableArray *cachedEffects = nil;
 //BOOL mirrorRendering = NO;
 
 %hook CAMEffectsRenderer
@@ -1059,86 +1017,11 @@ static NSMutableArray *effectsForiOS8()
 
 %end
 
-static void PreferencesChangedCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
-{
-	ciNoneIndex = NSNotFound;
-	if (cachedEffects == nil)
-		cachedEffects = [[NSMutableArray array] retain];
-	else
-		[cachedEffects removeAllObjects];
-	for (int i = 0; i < enabledArray.count; i++) {
-		CIFilter *filter = [[CIFilter filterWithName:enabledArray[i]] retain];
-		if ([filter.name isEqualToString:CINoneName])
-			ciNoneIndex = i;
-		configEffect(filter);
-		[cachedEffects addObject:filter];
-	}
-}
-
-void registerPref_tweak(HBPreferences *preferences, BOOL isAssetsd)
-{
-	#define _register(val, type, defaultVal, key) \
-		[preferences register ## type: &val default:defaultVal forKey:key];
-	#define _registerBool(val, defaultVal, key) _register(val, Bool, defaultVal, key)
-	#define _registerInteger(val, defaultVal, key) _register(val, Integer, defaultVal, key)
-	#define _registerFloat(val, defaultVal, key) _register(val, Float, defaultVal, key)
-	#define _registerObject(val, defaultVal, key) _register(val, Object, defaultVal, key)
-	if (!isAssetsd) {
-		_registerBool(TweakEnabled, YES, EnabledKey)
-		_registerBool(FillGrid, NO, FillGridKey)
-		_registerBool(AutoHideBB, NO, AutoHideBBKey)
-		_registerBool(oldEditor, NO, useOldEditorKey)
-		_registerInteger(mode, 0, saveModeKey);
-		_registerObject(enabledArray, @[], ENABLED_EFFECT)
-	}
-	#define xyz(val, defaultVal) \
-		_registerFloat(val, defaultVal, val ## Key)
-	xyz(CIColorMonochrome_R, 0.5f)
-	xyz(CIColorMonochrome_G, 0.6f)
-	xyz(CIColorMonochrome_B, 0.7f)
-	xyz(CIFalseColor_R1, 0.2f)
-	xyz(CIFalseColor_G1, 0.3f)
-	xyz(CIFalseColor_B1, 0.5f)
-	xyz(CIFalseColor_R2, 0.6f)
-	xyz(CIFalseColor_G2, 0.8f)
-	xyz(CIFalseColor_B2, 0.9f)
-	xyz(CISepiaTone_inputIntensity, 1.0f)
-	xyz(CIVibrance_inputAmount, 1.0f)
-	xyz(CIColorMonochrome_inputIntensity, 1.0f)
-	xyz(CIColorPosterize_inputLevels, 6.0f)
-	xyz(CIGloom_inputRadius, 10.0f)
-	xyz(CIGloom_inputIntensity, 1.0f)
-	xyz(CIBloom_inputRadius, 10.0f)
-	xyz(CIBloom_inputIntensity, 1.0f)
-	xyz(CISharpenLuminance_inputSharpness, 0.4f)
-	xyz(CIPixellate_inputScale, 8.0f)
-	xyz(CIGaussianBlur_inputRadius, 10.0f)
-	xyz(CITwirlDistortion_inputRadius, 200.0f)
-	xyz(CITwirlDistortion_inputAngle, 3.14f)
-	xyz(CITriangleKaleidoscope_inputSize, 300.0f)
-	xyz(CITriangleKaleidoscope_inputDecay, 0.85f)
-	xyz(CIPinchDistortion_inputRadius, 200.0f)
-	xyz(CIPinchDistortion_inputScale, 0.5f)
-	xyz(CILightTunnel_inputRadius, 90.0f)
-	xyz(CILightTunnel_inputRotation, 0.0f)
-	xyz(CIHoleDistortion_inputRadius, 150.0f)
-	xyz(CICircleSplashDistortion_inputRadius, 150.0f)
-	xyz(CICircularScreen_inputWidth, 6.0f)
-	xyz(CICircularScreen_inputSharpness, 0.7f)
-	xyz(CILineScreen_inputAngle, 0.0f)
-	xyz(CILineScreen_inputWidth, 6.0f)
-	xyz(CILineScreen_inputSharpness, 0.7f)
-	xyz(CIMirror_inputAngle, 0.0f)
-}
-
-HBPreferences *preferences;
-
 %ctor
 {
-	preferences = [[HBPreferences alloc] initWithIdentifier:tweakIdentifier];
-	registerPref(preferences);
+	HaveObserver()
+	callback();
 	BOOL isAssetsd = [NSBundle.mainBundle.bundleIdentifier isEqualToString:@"com.apple.assetsd"];
-	registerPref_tweak(preferences, isAssetsd);
 	if (TweakEnabled) {
 		if (!isAssetsd) {
 			if (isiOS8Up) {
@@ -1146,7 +1029,6 @@ HBPreferences *preferences;
 				dlopen("/System/Library/Frameworks/PhotosUI.framework/PhotosUI", RTLD_LAZY);
 				if (isiOS9Up) {
 					openCamera9();
-					CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, PreferencesChangedCallback, (CFStringRef)HBPreferencesDidChangeNotification, NULL, CFNotificationSuspensionBehaviorCoalesce);
 					%init(iOS9);
 				} else {
 					openCamera8();

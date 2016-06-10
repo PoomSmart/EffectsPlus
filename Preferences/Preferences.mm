@@ -8,16 +8,16 @@
 #import <Social/Social.h>
 #import <Cephei/HBAppearanceSettings.h>
 #import <Cephei/HBListController.h>
-#import <HBPreferences.h>
+#import "../../PSPrefs.x"
 
 #import <dlfcn.h>
 #include <objc/runtime.h>
 #include <sys/sysctl.h>
 
+DeclarePrefsTools()
+
 UIColor *fitColor = UIColor.systemBlueColor;
 NSString *updateFooterNotification = @"com.PS.EffectsPlus.prefs.footerUpdate";
-
-HBPreferences *preferences;
 
 static NSArray <UIColor *> *colors = [@[UIColor.systemRedColor, UIColor.systemGreenColor, UIColor.systemBlueColor] retain];
 #define targetColor colors[arc4random() % 3].copy
@@ -27,7 +27,6 @@ static NSArray <UIColor *> *colors = [@[UIColor.systemRedColor, UIColor.systemGr
 @end
 
 @interface EffectsPlusFiltersSelectionController : PSViewController
-- (UITableView *)tableView;
 @end
 
 @interface EffectsPlusFiltersSelectionController () <UITableViewDelegate, UITableViewDataSource, UIActionSheetDelegate> {
@@ -172,7 +171,6 @@ static NSBundle *epBundle()
 			}
 		}
 		[self saveSettings];
-		[[NSUserDefaults standardUserDefaults] synchronize];
 		[self.tableView reloadData];
 		system("killall Camera MobileSlideshow");
 	} else
@@ -270,9 +268,9 @@ static NSBundle *epBundle()
 
 - (void)saveSettings
 {
-	preferences[ENABLED_EFFECT] = _enabledEffects.array;
-	preferences[DISABLED_EFFECT] = _disabledEffects.array;
-	[preferences synchronize];
+	setValueForKey(_enabledEffects.array, ENABLED_EFFECT, NO);
+	setValueForKey(_disabledEffects.array, DISABLED_EFFECT, NO);
+	DoPostNotification();
 }
 
 - (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)fromIndexPath toIndexPath:(NSIndexPath *)toIndexPath
@@ -327,13 +325,9 @@ static NSBundle *epBundle()
         	initWithTitle:@"Reset" style:UIBarButtonItemStyleBordered
         	target:self action:@selector(toggleFiltersArray)];
 			((UINavigationItem *)[super navigationItem]).rightBarButtonItem = toggleBtn;
-		NSArray *_enabledArray = preferences[ENABLED_EFFECT];
-		if (!_enabledArray)
-			_enabledArray = [self arrayByAddingDefaults];
+		NSArray *_enabledArray = valueForKey(ENABLED_EFFECT, [self arrayByAddingDefaults]);
 		_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:_enabledArray];
-		NSArray *_disabledArray = preferences[DISABLED_EFFECT];
-		if (!_disabledArray)
-			_disabledArray = [self arrayByAddingExtras];
+		NSArray *_disabledArray = valueForKey(DISABLED_EFFECT, [self arrayByAddingExtras]);
 		_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:_disabledArray];
 		[self saveSettings];
 		[self.tableView reloadData];
@@ -366,7 +360,7 @@ static BOOL filterFit(NSUInteger filterCount)
 		UITableViewCell *enabledCell = [self.tableView cellForRowAtIndexPath:enabledIndexPath];
 		enabledCell.textLabel.textColor = filterFit(enabledIndexCount) ? fitColor : UIColor.blackColor;
 		if (isiOS8Up) {
-			BOOL modern = ![preferences boolForKey:useOldEditorKey];
+			BOOL modern = !boolForKey(useOldEditorKey, NO);
 			if (modern) {
 				NSString *effectName = _enabledEffects[i];
 				BOOL isCINone = [effectName isEqualToString:CINoneName];
@@ -421,7 +415,7 @@ static BOOL filterFit(NSUInteger filterCount)
 		NSString *effectName = effectDict[indexPath.row];
 		BOOL isCINone = [effectName isEqualToString:CINoneName];
 		if (isiOS8Up) {
-			BOOL modern = ![preferences boolForKey:useOldEditorKey];
+			BOOL modern = !boolForKey(useOldEditorKey, NO);
 			if ([effectsThatNotSupportedModernEditor() containsObject:effectName] && modern && !isCINone) {
 				if (index0)
 					cell.textLabel.textColor = UIColor.systemRedColor;
@@ -452,6 +446,8 @@ static BOOL filterFit(NSUInteger filterCount)
 
 @implementation EffectsPlusFiltersSettingsController
 
+HavePrefs()
+
 + (nullable NSString *)hb_specifierPlist
 {
 	return @"FiltersSettings";
@@ -468,7 +464,6 @@ static BOOL filterFit(NSUInteger filterCount)
 		value = @0;
 	[formatter release];
 	[self setPreferenceValue:value specifier:spec];
-	[[NSUserDefaults standardUserDefaults] synchronize];
 	[self reloadSpecifier:spec animated:NO];
 }
 
@@ -494,10 +489,11 @@ static BOOL filterFit(NSUInteger filterCount)
 
 @implementation EffectsPlusPrefController
 
+HavePrefs()
+
 - (void)masterSwitch:(id)value specifier:(PSSpecifier *)spec
 {
 	[self setPreferenceValue:value specifier:spec];
-	[[NSUserDefaults standardUserDefaults] synchronize];
 	system("killall Camera MobileSlideshow");
 }
 
@@ -506,7 +502,7 @@ static BOOL filterFit(NSUInteger filterCount)
 	[super loadView];
 	UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 110)];
 	UILabel *tweakLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 16, 320, 50)];
-	tweakLabel.text = @"Effects+";
+	tweakLabel.text = tweakName;
 	tweakLabel.textColor = targetColor;
 	tweakLabel.backgroundColor = UIColor.clearColor;
 	tweakLabel.font = [UIFont fontWithName:@"HelveticaNeue" size:50.0];
@@ -515,7 +511,7 @@ static BOOL filterFit(NSUInteger filterCount)
 	[headerView addSubview:tweakLabel];
 	[tweakLabel release];
 	UILabel *des = [[UILabel alloc] initWithFrame:CGRectMake(0, 75, 320, 20)];
-	des.text = @"Beautifiy your photos";
+	des.text = @"Beautify your photos";
 	des.textColor = targetColor;
 	des.alpha = 0.8;
 	des.font = [UIFont systemFontOfSize:14.0];
@@ -537,8 +533,7 @@ static BOOL filterFit(NSUInteger filterCount)
 {
 	SLComposeViewController *twitter = [[SLComposeViewController composeViewControllerForServiceType:SLServiceTypeTwitter] retain];
 	twitter.initialText = @"#EffectsPlus by @PoomSmart is really awesome!";
-	if (twitter)
-		[self.navigationController presentViewController:twitter animated:YES completion:nil];
+	[self.navigationController presentViewController:twitter animated:YES completion:nil];
 	[twitter release];
 }
 
@@ -555,9 +550,7 @@ static BOOL filterFit(NSUInteger filterCount)
 		[heart sizeToFit];
 		[heart addTarget:self action:@selector(love) forControlEvents:UIControlEventTouchUpInside];
 		self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithCustomView:heart] autorelease];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateFooter:) name:updateFooterNotification object:nil];
-		preferences = [[HBPreferences alloc] initWithIdentifier:tweakIdentifier];
-		registerPref(preferences);
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(updateFooter:) name:updateFooterNotification object:nil];
 	}
 	return self;
 }
@@ -568,7 +561,7 @@ static BOOL filterFit(NSUInteger filterCount)
 		NSMutableArray *specs = [[NSMutableArray arrayWithArray:[self loadSpecifiersFromPlistName:@"EffectsPlusPref" target:self]] retain];	
 		
 		for (PSSpecifier *spec in specs) {
-			NSString *Id = [[spec properties] objectForKey:@"id"];
+			NSString *Id = [spec properties][@"id"];
 			if ([Id isEqualToString:@"footer"])
 				self.footerSpec = spec;
 			else if ([Id isEqualToString:@"oldEditor"])
@@ -588,7 +581,7 @@ static BOOL filterFit(NSUInteger filterCount)
 
 - (NSString *)footerText
 {
-	int mode = [preferences integerForKey:saveModeKey];
+	int mode = intForKey(saveModeKey, 1);
 	switch (mode) {
 		case 1:
 			return @"Prompt saving options (#1, #2, and #3) when user taps at Save button.";
@@ -621,7 +614,7 @@ static BOOL filterFit(NSUInteger filterCount)
 		UISegmentedControl *modes = [[[UISegmentedControl alloc] initWithItems:@[@"❗ ", @"#1", @"#2", @"#3"]] autorelease];
 		modes.tintColor = targetColor;
 		[modes addTarget:self action:@selector(modeAction:) forControlEvents:UIControlEventValueChanged];
-		modes.selectedSegmentIndex = [preferences integerForKey:saveModeKey] - 1;
+		modes.selectedSegmentIndex = intForKey(saveModeKey, 1) - 1;
 		self.accessoryView = modes;
 	}
 	return self;
@@ -629,8 +622,8 @@ static BOOL filterFit(NSUInteger filterCount)
 
 - (void)modeAction:(UISegmentedControl *)segment
 {
-	preferences[saveModeKey] = @(segment.selectedSegmentIndex + 1);
-	[preferences synchronize];
+	setIntForKey(segment.selectedSegmentIndex + 1, saveModeKey);
+	DoPostNotification();
 	[NSNotificationCenter.defaultCenter postNotificationName:updateFooterNotification object:nil userInfo:nil];
 }
 

@@ -7,7 +7,6 @@ TWEAK_NAME = EffectsPlus
 EffectsPlus_FILES = Tweak.xm CINone.m
 EffectsPlus_FRAMEWORKS = AssetsLibrary CoreGraphics CoreImage QuartzCore UIKit
 EffectsPlus_PRIVATE_FRAMEWORKS = PhotoLibrary PhotoLibraryServices
-EffectsPlus_LIBRARIES = cephei
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
