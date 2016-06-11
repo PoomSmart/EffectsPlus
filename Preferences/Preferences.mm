@@ -326,9 +326,9 @@ static NSBundle *epBundle()
         	target:self action:@selector(toggleFiltersArray)];
 			((UINavigationItem *)[super navigationItem]).rightBarButtonItem = toggleBtn;
 		NSArray *_enabledArray = valueForKey(ENABLED_EFFECT, [self arrayByAddingDefaults]);
-		_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:_enabledArray];
+		_enabledEffects = [[NSMutableOrderedSet orderedSetWithArray:_enabledArray] retain];
 		NSArray *_disabledArray = valueForKey(DISABLED_EFFECT, [self arrayByAddingExtras]);
-		_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:_disabledArray];
+		_disabledEffects = [[NSMutableOrderedSet orderedSetWithArray:_disabledArray] retain];
 		[self saveSettings];
 		[self.tableView reloadData];
 	}

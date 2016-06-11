@@ -1,5 +1,5 @@
 DEBUG = 0
-PACKAGE_VERSION = 1.3-2
+PACKAGE_VERSION = 1.3-3
 
 include $(THEOS)/makefiles/common.mk
 
