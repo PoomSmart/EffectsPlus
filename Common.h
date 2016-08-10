@@ -18,4 +18,8 @@
 - (void)ep_save:(int)mode;
 @end
 
+@interface PUPhotoFilterThumbnailRenderer : NSObject
+- (UIImage *)_thumbnailImage;
+@end
+
 extern "C" NSString *PLLocalizedFrameworkString(NSString *key, NSString *comment);

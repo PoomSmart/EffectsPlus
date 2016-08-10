@@ -8,7 +8,6 @@
 		<array>
 			<string>com.apple.camera</string>
 			<string>com.apple.mobileslideshow</string>
-			<string>com.apple.springboard</string>
 		</array>
 		<key>Executables</key>
 		<array>

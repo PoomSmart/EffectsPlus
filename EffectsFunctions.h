@@ -53,18 +53,23 @@ static NSString *displayNameFromCIFilterName(NSString *name)
 	return nil;
 }
 
+NSMutableArray *_effectsThatNotSupportedModernEditor = nil;
+
 static NSMutableArray *effectsThatNotSupportedModernEditor()
 {
-	NSMutableArray *array = [NSMutableArray array];
-	[array addObject:CINoneName];
-	[array addObject:@"CIMirror"];
-	[array addObject:@"CITriangleKaleidoscope"];
-	[array addObject:@"CILightTunnel"];
-	[array addObject:@"CIPinchDistortion"];
-	[array addObject:@"CITwirlDistortion"];
-	[array addObject:@"CIStretch"];
-	[array addObject:@"CIWrapMirror"];
-	[array addObject:@"CIHoleDistortion"];
-	[array addObject:@"CICircleSplashDistortion"];
-	return array;
+	if (_effectsThatNotSupportedModernEditor == nil) {
+		NSMutableArray *array = [NSMutableArray array];
+		[array addObject:CINoneName];
+		[array addObject:@"CIMirror"];
+		[array addObject:@"CITriangleKaleidoscope"];
+		[array addObject:@"CILightTunnel"];
+		[array addObject:@"CIPinchDistortion"];
+		[array addObject:@"CITwirlDistortion"];
+		[array addObject:@"CIStretch"];
+		[array addObject:@"CIWrapMirror"];
+		[array addObject:@"CIHoleDistortion"];
+		[array addObject:@"CICircleSplashDistortion"];
+		_effectsThatNotSupportedModernEditor = [array retain];
+	}
+	return _effectsThatNotSupportedModernEditor;
 }

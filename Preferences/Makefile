@@ -1,5 +1,4 @@
-GO_EASY_ON_ME = 1
-ARCHS = armv7 arm64
+include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = EffectsPlusPref
 EffectsPlusPref_FILES = Preferences.mm
@@ -8,7 +7,6 @@ EffectsPlusPref_PRIVATE_FRAMEWORKS = PhotoLibrary Preferences
 EffectsPlusPref_INSTALL_PATH = /Library/PreferenceBundles
 EffectsPlusPref_LIBRARIES = cepheiprefs
 
-include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/bundle.mk
 
 internal-stage::

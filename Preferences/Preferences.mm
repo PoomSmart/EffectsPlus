@@ -1,3 +1,4 @@
+#define KILL_PROCESS
 #import "../Common.h"
 #import "../EffectsFunctions.h"
 #import "../Prefs.h"
@@ -115,46 +116,46 @@ static NSBundle *epBundle()
 	if (popup.tag == 9596) {
 		switch (buttonIndex) {
 			case 0:
-				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingDefaults]];
-				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExtras]];
+				_enabledEffects = [[NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingDefaults]] retain];
+				_disabledEffects = [[NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExtras]] retain];
 				break;
 			case 1:
 				[_enabledEffects addObjectsFromArray:_disabledEffects.array];
-				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:[NSMutableArray array]];
+				_disabledEffects = [[NSMutableOrderedSet orderedSetWithArray:[NSMutableArray array]] retain];
 				break;
 			case 2:
 				[_disabledEffects addObjectsFromArray:_enabledEffects.array];
-				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[NSMutableArray array]];
+				_enabledEffects = [[NSMutableOrderedSet orderedSetWithArray:[NSMutableArray array]] retain];
 				break;
 			case 3:
 			{
-				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingPhotoBoothsStock]];
+				_enabledEffects = [[NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingPhotoBoothsStock]] retain];
 				NSMutableArray *array3 = [NSMutableArray array];
 				[array3 addObjectsFromArray:[self arrayByAddingDefaults]];
 				[array3 removeObject:CINoneName];
 				[array3 addObjectsFromArray:[self arrayByAddingExternal1]];
 				[array3 addObjectsFromArray:[self arrayByAddingExternal2]];
-				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array3];
+				_disabledEffects = [[NSMutableOrderedSet orderedSetWithArray:array3] retain];
 				break;
 			}
 			case 4:
 			{
-				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExternal1]];
+				_enabledEffects = [[NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExternal1]] retain];
 				NSMutableArray *array4 = [NSMutableArray array];
 				[array4 addObjectsFromArray:[self arrayByAddingDefaults]];
 				[array4 addObjectsFromArray:[self arrayByAddingPhotoBooths]];
 				[array4 addObjectsFromArray:[self arrayByAddingExternal2]];
-				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array4];
+				_disabledEffects = [[NSMutableOrderedSet orderedSetWithArray:array4] retain];
 				break;
 			}
 			case 5:
 			{
-				_enabledEffects = [NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExternal2]];
+				_enabledEffects = [[NSMutableOrderedSet orderedSetWithArray:[self arrayByAddingExternal2]] retain];
 				NSMutableArray *array5 = [NSMutableArray array];
 				[array5 addObjectsFromArray:[self arrayByAddingDefaults]];
 				[array5 addObjectsFromArray:[self arrayByAddingPhotoBooths]];
 				[array5 addObjectsFromArray:[self arrayByAddingExternal1]];
-				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array5];
+				_disabledEffects = [[NSMutableOrderedSet orderedSetWithArray:array5] retain];
 				break;
 			}
 			case 6:
@@ -166,13 +167,14 @@ static NSBundle *epBundle()
 				NSMutableArray *array7 = [NSMutableArray array];
 				[array7 addObjectsFromArray:[self arrayByAddingDefaults]];
 				[array7 addObjectsFromArray:[self arrayByAddingPhotoBooths]];
-				_disabledEffects = [NSMutableOrderedSet orderedSetWithArray:array7];
+				_disabledEffects = [[NSMutableOrderedSet orderedSetWithArray:array7] retain];
 				break;
 			}
 		}
 		[self saveSettings];
 		[self.tableView reloadData];
-		system("killall Camera MobileSlideshow");
+		killProcess("Camera");
+		killProcess("MobileSlideShow");
 	} else
 		[super actionSheet:popup clickedButtonAtIndex:buttonIndex];
 }
@@ -319,8 +321,7 @@ static NSBundle *epBundle()
 
 - (instancetype)init
 {
-	self = [super init];
-	if (self) {
+	if (self == [super init]) {
 		UIBarButtonItem *toggleBtn = [[UIBarButtonItem alloc]
         	initWithTitle:@"Reset" style:UIBarButtonItemStyleBordered
         	target:self action:@selector(toggleFiltersArray)];
@@ -391,7 +392,7 @@ static BOOL filterFit(NSUInteger filterCount)
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
 	BOOL index0 = indexPath.section == 0;
-	NSString *CellIdentifier = index0 ? _enabledEffects.array[indexPath.row] : _disabledEffects.array[indexPath.row];
+	static NSString *CellIdentifier = index0 ? _enabledEffects.array[indexPath.row] : _disabledEffects.array[indexPath.row];
 	UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
 	UIColor *stockColor = [UIColor colorWithRed:0.8 green:0.9 blue:0.9 alpha:1];
 	UIColor *pbColor = [UIColor colorWithRed:1 green:0.8 blue:0.8 alpha:1];
@@ -414,7 +415,7 @@ static BOOL filterFit(NSUInteger filterCount)
 	if (filterCount - 1 >= indexPath.row) {
 		NSString *effectName = effectDict[indexPath.row];
 		BOOL isCINone = [effectName isEqualToString:CINoneName];
-		if (isiOS8Up) {
+		if (isiOS8) {
 			BOOL modern = !boolForKey(useOldEditorKey, NO);
 			if ([effectsThatNotSupportedModernEditor() containsObject:effectName] && modern && !isCINone) {
 				if (index0)
@@ -494,35 +495,11 @@ HavePrefs()
 - (void)masterSwitch:(id)value specifier:(PSSpecifier *)spec
 {
 	[self setPreferenceValue:value specifier:spec];
-	system("killall Camera MobileSlideshow");
+	killProcess("Camera");
+	killProcess("MobileSlideShow");
 }
 
-- (void)loadView
-{
-	[super loadView];
-	UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 110)];
-	UILabel *tweakLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 16, 320, 50)];
-	tweakLabel.text = tweakName;
-	tweakLabel.textColor = targetColor;
-	tweakLabel.backgroundColor = UIColor.clearColor;
-	tweakLabel.font = [UIFont fontWithName:@"HelveticaNeue" size:50.0];
-	tweakLabel.textAlignment = 1;
-	tweakLabel.autoresizingMask = 0x12;
-	[headerView addSubview:tweakLabel];
-	[tweakLabel release];
-	UILabel *des = [[UILabel alloc] initWithFrame:CGRectMake(0, 75, 320, 20)];
-	des.text = @"Beautify your photos";
-	des.textColor = targetColor;
-	des.alpha = 0.8;
-	des.font = [UIFont systemFontOfSize:14.0];
-	des.backgroundColor = UIColor.clearColor;
-	des.textAlignment = 1;
-	des.autoresizingMask = 0xa;
-	[headerView addSubview:des];
-	[des release];
-	self.table.tableHeaderView = headerView;
-	[headerView release];
-}
+HaveBanner2(tweakName, targetColor, @"Beautify your photos", targetColor)
 
 - (void)reloadAS:(id)param
 {
@@ -570,10 +547,10 @@ HavePrefs()
 				self.asSpec = spec;
 		}
 		[self updateFooter:nil];	
-		if (!isiOS8Up) {
+		if (!isiOS8)
 			[specs removeObject:self.oldEditorSpec];
+		if (!isiOS8Up)
 			[specs removeObject:self.asSpec];
-		}
 		_specifiers = specs.copy;
   	}
 	return _specifiers;

@@ -331,7 +331,7 @@ static NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inputDict)
 
 PLProgressHUD *epHUD = nil;
 
-static void effectCorrection(CIFilter *filter, CGRect extent, int orientation)
+static void effectCorrection(CIFilter *filter, CGRect extent, NSInteger orientation)
 {
 	NSString *filterName = filter.name;
 	CIVector *normalHalfExtent = [CIVector vectorWithX:extent.size.width / 2 Y:extent.size.height / 2];
@@ -451,7 +451,7 @@ static void addExtraSortedEffects(NSObject <effectFilterManagerDelegate> *effect
 	[allEffects removeAllObjects];
 	[names removeAllObjects];
 	[aggdNames removeAllObjects];
-	for (int i = 0; i < enabledArray.count; i++) {
+	for (NSInteger i = 0; i < enabledArray.count; i++) {
 		NSString *string = enabledArray[i];
 		addCIEffect(string);
 	}
@@ -504,7 +504,7 @@ static void showFilterSelectionAlert(id self)
 - (NSUInteger)_cellsPerRow
 {
 	NSUInteger filterCount = [(PLEffectFilterManager *)[%c(PLEffectFilterManager) sharedInstance] filterCount];
-	int i = 1;
+	NSInteger i = 1;
 	do {
 		if (filterCount <= i * i)
 			break;
@@ -577,7 +577,7 @@ static void showFilterSelectionAlert(id self)
 {
 	if (filter) {
 		NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
-		for (int i = 0; i < filters.count; i++) {
+		for (NSInteger i = 0; i < filters.count; i++) {
 			if ([((CIFilter *)filters[i]).name isEqualToString:filter.name]) {
 				[self _setSelectedIndexPath:[NSIndexPath indexPathForItem:i inSection:1]];
 				return;
@@ -610,7 +610,7 @@ static void showFilterSelectionAlert(id self)
 - (NSUInteger)_cellsPerRow
 {
 	NSUInteger filterCount = [(CAMEffectFilterManager *)[%c(CAMEffectFilterManager) sharedInstance] filterCount];
-	int i = 1;
+	NSInteger i = 1;
 	do {
 		if (filterCount <= i * i)
 			break;
@@ -675,7 +675,7 @@ static void showFilterSelectionAlert(id self)
 {
 	if (filter) {
 		NSArray *filters = MSHookIvar<NSArray *>(self, "_effects");
-		for (int i = 0; i < filters.count; i++) {
+		for (NSInteger i = 0; i < filters.count; i++) {
 			if ([((CIFilter *)[filters objectAtIndex:i]).name isEqualToString:filter.name]) {
 				[self _setSelectedIndexPath:[NSIndexPath indexPathForItem:i inSection:1]];
 				return;
@@ -708,25 +708,25 @@ static void showFilterSelectionAlert(id self)
 
 //BOOL mirrorRendering = NO;
 
-%hook CAMEffectsRenderer
+/*%hook CAMEffectsRenderer
 
-/*- (void)setMirrorFilterRendering:(BOOL)mirror
+- (void)setMirrorFilterRendering:(BOOL)mirror
 {
 	%orig(mirrorRendering = mirror);
-}*/
+}
 
-%end
+%end*/
 
 %hook CAMEffectFilterManager
 
-+ (NSString *)ciFilterNameForType:(int)type
++ (NSString *)ciFilterNameForType:(NSInteger)type
 {
 	if (enabledArray.count == 0 || type > enabledArray.count)
 		return %orig;
 	return enabledArray[type - 1];
 }
 
-+ (CIFilter *)newFilterForType:(int)type
++ (CIFilter *)newFilterForType:(NSInteger)type
 {
 	if (cachedEffects.count == 0 || type > cachedEffects.count)
 		return %orig;
@@ -735,14 +735,14 @@ static void showFilterSelectionAlert(id self)
 	return filter;
 }
 
-+ (NSString *)displayNameForType:(int)type
++ (NSString *)displayNameForType:(NSInteger)type
 {
 	if (enabledArray.count == 0 || type > enabledArray.count)
 		return %orig;
 	return displayNameFromCIFilterName(enabledArray[type - 1]);
 }
 
-+ (NSString *)aggdNameForType:(int)type
++ (NSString *)aggdNameForType:(NSInteger)type
 {
 	if (enabledArray.count == 0 || type > enabledArray.count)
 		return %orig;
@@ -758,7 +758,7 @@ static void showFilterSelectionAlert(id self)
 	NSUInteger filterCount = enabledArray.count;
 	if (filterCount == 0)
 		return %orig;
-	int i = 1;
+	NSInteger i = 1;
 	do {
 		if (filterCount <= i * i)
 			break;
@@ -780,11 +780,11 @@ static void showFilterSelectionAlert(id self)
 
 /*- (void)_setGridFilters:(NSDictionary *)filters
 {
-	int orientation = mirrorRendering ? 5 : 6;
+	NSInteger orientation = mirrorRendering ? 5 : 6;
 	NSMutableDictionary *mfilters = [NSMutableDictionary dictionary];
 	[mfilters addEntriesFromDictionary:filters];
 	NSArray *allKeys = [mfilters allKeys];
-	for (int i = 0; i < allKeys.count; i++) {
+	for (NSInteger i = 0; i < allKeys.count; i++) {
 		CIFilter *filter = [mfilters[allKeys[i]] retain];
 		effectCorrection(filter, [self rectForFilterType:i], orientation);
 		[mfilters setObject:filter forKey:allKeys[i]];
@@ -814,7 +814,7 @@ static void showFilterSelectionAlert(id self)
 - (CIFilter *)_updateSelectedFilter
 {
 	CIFilter *filter = [%orig retain];
-	//int orientation = mirrorRendering ? 5 : 6;
+	//NSInteger orientation = mirrorRendering ? 5 : 6;
 	//CGSize size = self.fixedSize;
 	//effectCorrection(filter, CGRectMake(0, 0, size.width, size.height), orientation);
 	cachedEffects[self.filterType - 1] = filter;
@@ -842,23 +842,33 @@ static void showFilterSelectionAlert(id self)
 %hook PLPhotoEffect
 
 static NSMutableArray *effects = nil;
-static NSMutableArray *effectsForiOS8()
+static NSMutableArray *effectsForiOS8Up()
 {
 	static dispatch_once_t onceToken;
 	dispatch_once(&onceToken, ^{
 		effects = [NSMutableArray array];
-		CAMEffectFilterManager *manager = (CAMEffectFilterManager *)[%c(CAMEffectFilterManager) sharedInstance];
-		NSMutableArray *camEffects = MSHookIvar<NSMutableArray *>(manager, "_effects");
-		NSMutableArray *ourCamEffects = [NSMutableArray arrayWithArray:camEffects];
-		if (![(PUPhotoEditProtoSettings *)[%c(PUPhotoEditProtoSettings) sharedInstance] useOldPhotosEditor2]) {
-			NSMutableArray *camEffectsToBeRemoved = [NSMutableArray array];
-			for (NSUInteger i = 0; i < ourCamEffects.count; i++) {
-				CIFilter *noneFilter = ourCamEffects[i];
-				NSString *noneFilterName = noneFilter.name;
-				if ([effectsThatNotSupportedModernEditor() containsObject:noneFilterName])
-					[camEffectsToBeRemoved addObject:noneFilter];
+		NSMutableArray *ourCamEffects;
+		if (isiOS9Up) {
+			ourCamEffects = [NSMutableArray arrayWithCapacity:cachedEffects.count];
+			for (CIFilter *filter in cachedEffects) {
+				if (![effectsThatNotSupportedModernEditor() containsObject:filter.name])
+					[ourCamEffects addObject:filter];
 			}
-			[ourCamEffects removeObjectsInArray:camEffectsToBeRemoved];
+		} else {
+			BOOL newEditor = ![(PUPhotoEditProtoSettings *)[%c(PUPhotoEditProtoSettings) sharedInstance] useOldPhotosEditor2];
+			CAMEffectFilterManager *manager = (CAMEffectFilterManager *)[%c(CAMEffectFilterManager) sharedInstance];
+			NSMutableArray *camEffects = MSHookIvar<NSMutableArray *>(manager, "_effects");
+			ourCamEffects = [NSMutableArray arrayWithArray:camEffects];
+			if (newEditor) {
+				NSMutableArray *camEffectsToBeRemoved = [NSMutableArray array];
+				for (NSUInteger i = 0; i < ourCamEffects.count; i++) {
+					CIFilter *noneFilter = ourCamEffects[i];
+					NSString *noneFilterName = noneFilter.name;
+					if ([effectsThatNotSupportedModernEditor() containsObject:noneFilterName])
+						[camEffectsToBeRemoved addObject:noneFilter];
+				}
+				[ourCamEffects removeObjectsInArray:camEffectsToBeRemoved];
+			}
 		}
 		NSUInteger filterCount = ourCamEffects.count;
     	NSUInteger index = 0;
@@ -877,12 +887,13 @@ static NSMutableArray *effectsForiOS8()
 
 + (NSArray *)allEffects
 {
-    return effectsForiOS8();
+    NSArray *effects = effectsForiOS8Up();
+    return effects.count ? effects : %orig;
 }
 
 + (PLPhotoEffect *)effectWithIdentifier:(NSString *)identifier
 {
-	NSArray *allEffects = effectsForiOS8();
+	NSArray *allEffects = effectsForiOS8Up();
 	PLPhotoEffect *effect = allEffects[[self indexOfEffectWithIdentifier:identifier]];
 	return effect;
 }
@@ -890,7 +901,7 @@ static NSMutableArray *effectsForiOS8()
 + (PLPhotoEffect *)effectWithCIFilterName:(NSString *)filterName
 {
 	PLPhotoEffect *targetEffect = nil;
-	NSArray *allEffects = effectsForiOS8();
+	NSArray *allEffects = effectsForiOS8Up();
 	for (NSUInteger i = 0; i < allEffects.count; i++) {
 		PLPhotoEffect *effect = allEffects[i];
 		NSString *effectFilterName = [effect CIFilterName];
@@ -905,8 +916,8 @@ static NSMutableArray *effectsForiOS8()
 + (NSUInteger)indexOfEffectWithIdentifier:(NSString *)identifier
 {
 	NSUInteger index = 0;
-	NSArray *allEffects = effectsForiOS8();
-	for (int i = 0; i < allEffects.count; i++) {
+	NSArray *allEffects = effectsForiOS8Up();
+	for (NSInteger i = 0; i < allEffects.count; i++) {
 		PLPhotoEffect *effect = allEffects[i];
 		NSString *effectIdentifier = [effect filterIdentifier];
 		if ([effectIdentifier isEqualToString:identifier]) {
@@ -919,12 +930,23 @@ static NSMutableArray *effectsForiOS8()
 
 %end
 
+// Some filters won't play nice
+%hook PUPhotoFilterThumbnailRenderer
+
+- (UIImage *)_renderThumbnailWithFilter:(CIFilter *)filter
+{
+	UIImage *image = %orig;
+	return image ? image : [self _thumbnailImage];
+}
+
+%end
+
 %end
 
 %hook PLEditPhotoController
 
 %new
-- (void)ep_save:(int)mode
+- (void)ep_save:(NSInteger)mode
 {
 	switch (mode) {
 		case 2:
@@ -960,7 +982,7 @@ static NSMutableArray *effectsForiOS8()
 - (void)actionSheet:(UIActionSheet *)popup clickedButtonAtIndex:(NSInteger)buttonIndex
 {
 	if (popup.tag == 9598) {
-		int mode = buttonIndex + 2;
+		NSInteger mode = buttonIndex + 2;
 		[self ep_save:mode];
 	} else
 		%orig;
@@ -977,7 +999,7 @@ static NSMutableArray *effectsForiOS8()
 	CIImage *ciImage = [self _newCIImageFromUIImage:actualImage];
 	
 	// Fixing image orientation, still dirt (?)
-	int orientation = 1;
+	NSInteger orientation = 1;
 	CGFloat rotation = MSHookIvar<CGFloat>(self, "_rotationAngle");
 	CGFloat angle = rotation;
 	
@@ -1007,7 +1029,7 @@ static NSMutableArray *effectsForiOS8()
 	[library release];
 }
 
-- (UIBarButtonItem *)_rightButtonForMode:(int)mode enableDone:(BOOL)done enableSave:(BOOL)save
+- (UIBarButtonItem *)_rightButtonForMode:(NSInteger)mode enableDone:(BOOL)done enableSave:(BOOL)save
 {
 	UIBarButtonItem *item = %orig;
 	if (mode == 0 && !done && save)
