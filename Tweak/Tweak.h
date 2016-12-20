@@ -38,6 +38,7 @@ NSUInteger ciNoneIndex = NSNotFound;
 
 NSMutableArray *cachedEffects = nil;
 NSArray *enabledArray = nil;
+NSMutableArray *enabledArray2 = nil;
 
 static void configEffect(CIFilter *filter)
 {
@@ -85,6 +86,10 @@ HaveCallback()
 		GetBool(oldEditor, useOldEditorKey, NO)
 		GetInt(mode, saveModeKey, 1)
 		GetGeneric(enabledArray, ENABLED_EFFECT, @[])
+		if (isiOS9Up) {
+			enabledArray2 = [enabledArray mutableCopy];
+			[enabledArray2 removeObject:@"CINone"];
+		}
 	}
 	GetFloat2(CIColorMonochrome_R, 0.5f)
 	GetFloat2(CIColorMonochrome_G, 0.6f)
@@ -122,16 +127,16 @@ HaveCallback()
 	GetFloat2(CILineScreen_inputWidth, 6.0f)
 	GetFloat2(CILineScreen_inputSharpness, 0.7f)
 	GetFloat2(CIMirror_inputAngle, 0.0f)
-	if (isiOS9Up && !isAssetsd) {
+	if (isiOS8Up && !isAssetsd) {
 		ciNoneIndex = NSNotFound;
 		if (cachedEffects == nil)
 			cachedEffects = [[NSMutableArray array] retain];
 		else
 			[cachedEffects removeAllObjects];
 		for (int i = 0; i < enabledArray.count; i++) {
-			CIFilter *filter = [[CIFilter filterWithName:enabledArray[i]] retain];
-			if ([filter.name isEqualToString:CINoneName])
+			if ([enabledArray[i] isEqualToString:CINoneName])
 				ciNoneIndex = i;
+			CIFilter *filter = [[CIFilter filterWithName:enabledArray[i]] retain];
 			configEffect(filter);
 			[cachedEffects addObject:filter];
 		}

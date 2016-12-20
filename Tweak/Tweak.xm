@@ -3,7 +3,10 @@
 #import "../Prefs.h"
 #import <CoreImage/CIFilter.h>
 #import <ImageIO/ImageIO.h>
+#import <IOSurface/IOSurfaceAPI.h>
 #import <AssetsLibrary/ALAssetsLibrary.h>
+
+%group CIFilter
 
 %hook CIImage
 
@@ -58,6 +61,13 @@ static NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inputDict)
 {
 	NSString *name = %orig;
 	return name == nil ? self.name : name;
+}
+
++ (NSMutableArray *)_filterArrayFromProperties:(NSDictionary *)properties inputImageExtent:(CGRect)extent
+{
+	NSMutableArray *array = %orig;
+	NSLog(@"%@ : %@", properties, array);
+	return array;
 }
 
 %end
@@ -326,6 +336,8 @@ static NSDictionary *dictionaryByAddingSomeNativeValues(NSDictionary *inputDict)
 {
 	return dictionaryByAddingSomeNativeValues(%orig);
 }
+
+%end
 
 %end
 
@@ -706,47 +718,88 @@ static void showFilterSelectionAlert(id self)
 
 %group iOS9
 
-//BOOL mirrorRendering = NO;
+BOOL mirrorRendering = NO;
 
-/*%hook CAMEffectsRenderer
+%hook CAMEffectsRenderer
 
 - (void)setMirrorFilterRendering:(BOOL)mirror
 {
 	%orig(mirrorRendering = mirror);
 }
 
-%end*/
+%end
+
+%hook CAMViewfinderViewController
+
+- (void)cameraEffectsRenderer:(id)controller didStartTransitionToShowGrid:(BOOL)showGrid animated:(BOOL)animated
+{
+	%orig;
+	if (AutoHideBB) {
+		self._bottomBar.hidden = showGrid;
+		self._topBar.hidden = showGrid;
+	}
+}
+
+%end
 
 %hook CAMEffectFilterManager
 
 + (NSString *)ciFilterNameForType:(NSInteger)type
 {
-	if (enabledArray.count == 0 || type > enabledArray.count)
+	if (enabledArray2.count == 0 || type - 1 > enabledArray2.count)
 		return %orig;
-	return enabledArray[type - 1];
+	if (type - 1 < 0)
+		return nil;
+	return enabledArray2[type - 1];
 }
 
 + (CIFilter *)newFilterForType:(NSInteger)type
 {
-	if (cachedEffects.count == 0 || type > cachedEffects.count)
-		return %orig;
-	CIFilter *filter = [cachedEffects[type - 1] retain];
+	CIFilter *filter = %orig;
+	if (enabledArray2.count == 0)
+		return filter;
 	configEffect(filter);
 	return filter;
 }
 
 + (NSString *)displayNameForType:(NSInteger)type
 {
-	if (enabledArray.count == 0 || type > enabledArray.count)
+	if (enabledArray2.count == 0 || type - 1 > enabledArray2.count)
 		return %orig;
-	return displayNameFromCIFilterName(enabledArray[type - 1]);
+	return displayNameFromCIFilterName(type == 0 ? @"CINone" : enabledArray2[type - 1]);
 }
 
 + (NSString *)aggdNameForType:(NSInteger)type
 {
-	if (enabledArray.count == 0 || type > enabledArray.count)
-		return %orig;
 	return [[self displayNameForType:type] lowercaseString];
+}
+
+%end
+
+BOOL overrideCIImage = NO;
+CIFilter *currentFilter = nil;
+
+%hook CIImage
+
+- (id)initWithIOSurface:(IOSurfaceRef)surface options:(NSDictionary *)options
+{
+	self = %orig;
+	if (overrideCIImage)
+		return [[%c(PLCIFilterUtilities) outputImageFromFilters:@[currentFilter] inputImage:self orientation:mirrorRendering ? 5 : 6 copyFiltersFirst:YES] retain];
+	return self;
+}
+
+%end
+
+%hook CAMCaptureEngine
+
+- (IOSurfaceRef)_newFilteredSurfaceFromSurface:(IOSurfaceRef)surface filter:(CIFilter *)filter
+{
+	overrideCIImage = YES;
+	currentFilter = [filter retain];
+	IOSurfaceRef ref = %orig;
+	overrideCIImage = NO;
+	return ref;
 }
 
 %end
@@ -769,12 +822,12 @@ static void showFilterSelectionAlert(id self)
 
 - (NSArray *)filterTypes
 {
-	NSUInteger filterCount = enabledArray.count;
-	if (filterCount == 0)
+	if (enabledArray.count == 0)
 		return %orig;
 	NSMutableArray *filters = [NSMutableArray array];
-	for (NSInteger i = 0; i < filterCount; i++)
-		[filters addObject:[NSNumber numberWithInteger:(i + 1)]];
+	int i = 0;
+	for (NSString *filter in enabledArray)
+		[filters addObject:[filter isEqualToString:@"CINone"] ? @0 : @(i++ + 1)];
 	return filters;
 }
 
@@ -792,34 +845,6 @@ static void showFilterSelectionAlert(id self)
 	}
 	%orig(mfilters);
 }*/
-
-- (NSUInteger)_filterTypeForGridIndex:(NSUInteger)index
-{
-	return index + 1;
-}
-
-- (NSUInteger)_gridIndexForFilterType:(NSUInteger)type
-{
-	if (type == 0)
-		return 0;
-	return type - 1;
-}
-
-%end
-
-// CAMCaptureEngine completeLegacyStillImageCaptureRequest:withResult:
-
-%hook CAMEffectsFullsizeView
-
-- (CIFilter *)_updateSelectedFilter
-{
-	CIFilter *filter = [%orig retain];
-	//NSInteger orientation = mirrorRendering ? 5 : 6;
-	//CGSize size = self.fixedSize;
-	//effectCorrection(filter, CGRectMake(0, 0, size.width, size.height), orientation);
-	cachedEffects[self.filterType - 1] = filter;
-	return [filter autorelease];
-}
 
 %end
 
@@ -841,7 +866,7 @@ static void showFilterSelectionAlert(id self)
 
 %hook PLPhotoEffect
 
-static NSMutableArray *effects = nil;
+NSMutableArray *effects = nil;
 static NSMutableArray *effectsForiOS8Up()
 {
 	static dispatch_once_t onceToken;
@@ -851,7 +876,7 @@ static NSMutableArray *effectsForiOS8Up()
 		if (isiOS9Up) {
 			ourCamEffects = [NSMutableArray arrayWithCapacity:cachedEffects.count];
 			for (CIFilter *filter in cachedEffects) {
-				if (![effectsThatNotSupportedModernEditor() containsObject:filter.name])
+				//if (![effectsThatNotSupportedModernEditor() containsObject:filter.name])
 					[ourCamEffects addObject:filter];
 			}
 		} else {
@@ -928,6 +953,13 @@ static NSMutableArray *effectsForiOS8Up()
 	return index;
 }
 
+- (CIFilter *)newEffectFilter
+{
+	CIFilter *filter = %orig;
+	configEffect(filter);
+	return filter;
+}
+
 %end
 
 // Some filters won't play nice
@@ -935,13 +967,17 @@ static NSMutableArray *effectsForiOS8Up()
 
 - (UIImage *)_renderThumbnailWithFilter:(CIFilter *)filter
 {
-	UIImage *image = %orig;
+	UIImage *uiImage = [self _thumbnailImage];
+	effectCorrection(filter, CGRectMake(0, 0, uiImage.size.width, uiImage.size.height), uiImage.imageOrientation);
+	UIImage *image = %orig(filter);
 	return image ? image : [self _thumbnailImage];
 }
 
 %end
 
 %end
+
+%group preiOS9
 
 %hook PLEditPhotoController
 
@@ -1039,6 +1075,8 @@ static NSMutableArray *effectsForiOS8Up()
 
 %end
 
+%end
+
 %ctor
 {
 	HaveObserver()
@@ -1062,7 +1100,11 @@ static NSMutableArray *effectsForiOS8Up()
 				openCamera7();
 				%init(iOS7);
 			}
+			if (!isiOS9Up) {
+				%init(preiOS9);
+			}
 			%init;
 		}
+		%init(CIFilter);
 	}
 }
